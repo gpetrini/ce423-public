@@ -1,0 +1,184 @@
+## Localizador da camada de apresentacao compartilhada. As tres primeiras
+## entradas cobrem as profundidades possiveis dentro do monorepo. A quarta
+## cobre o ESPELHO PUBLICO, onde templates/ nao existe: la o CI deposita o
+## lectures_setup.R ao lado dos demais, em aulas/code/, de modo que o pacote
+## que o aluno baixa e autocontido.
+local({
+  for (p in c("../../../templates/lectures_setup.R",
+              "../../templates/lectures_setup.R",
+              "../templates/lectures_setup.R",
+              "code/lectures_setup.R")) {
+    if (file.exists(p)) { source(p, local = globalenv()); return(invisible(NULL)) }
+  }
+  stop("nao encontrei lectures_setup.R -- tangule Lectures/templates/lectures_setup.org")
+})
+
+## Somas de desvios de duas variaveis. Minuscula e desvio: x_i = X_i - media(X).
+desvios <- function(x, y) {
+  list(n = length(x), mx = mean(x), my = mean(y),
+       Sxx = sum((x - mean(x))^2),
+       Syy = sum((y - mean(y))^2),
+       Sxy = sum((x - mean(x)) * (y - mean(y))))
+}
+
+## Tudo o que os slides de 03/09 precisam de um ajuste simples.
+rls <- function(x, y, alpha = 0.05) {
+  d <- desvios(x, y); n <- d$n
+  b1 <- d$Sxy / d$Sxx; b0 <- d$my - b1 * d$mx
+  aj <- b0 + b1 * x; u <- y - aj
+  RSS <- sum(u^2); ESS <- d$Syy - RSS; gl <- n - 2
+  Se2 <- RSS / gl
+  Sb1 <- sqrt(Se2 / d$Sxx)
+  Sb0 <- sqrt(Se2 * (1 / n + d$mx^2 / d$Sxx))
+  tc <- qt(1 - alpha / 2, gl)
+  c(d, list(x = x, y = y, b0 = b0, b1 = b1, aj = aj, u = u,
+            RSS = RSS, ESS = ESS, TSS = d$Syy, gl = gl, Se2 = Se2, Se = sqrt(Se2),
+            R2 = ESS / d$Syy, Sb0 = Sb0, Sb1 = Sb1,
+            t1 = b1 / Sb1, F = (ESS / 1) / Se2, tc = tc,
+            ic1 = b1 + c(-1, 1) * tc * Sb1, alpha = alpha))
+}
+
+## Media condicional e previsao individual em x0.
+previsao <- function(a, x0) {
+  aj <- a$b0 + a$b1 * x0
+  base <- 1 / a$n + (x0 - a$mx)^2 / a$Sxx
+  Smed <- a$Se * sqrt(base); Sprev <- a$Se * sqrt(1 + base)
+  list(aj = aj, Smed = Smed, Sprev = Sprev,
+       ic_med = aj + c(-1, 1) * a$tc * Smed,
+       ic_prev = aj + c(-1, 1) * a$tc * Sprev)
+}
+
+## Tudo o que os slides de 10/09, 14/09 e 17/09 precisam. Nomes x1 e x2 sao os
+## rotulos que aparecem nas formulas (ex.: "L" e "K").
+rlm2 <- function(x1, x2, y, alpha = 0.05, r1 = "L", r2 = "K") {
+  n <- length(y)
+  S11 <- sum((x1 - mean(x1))^2); S22 <- sum((x2 - mean(x2))^2)
+  S12 <- sum((x1 - mean(x1)) * (x2 - mean(x2)))
+  S1y <- sum((x1 - mean(x1)) * (y - mean(y)))
+  S2y <- sum((x2 - mean(x2)) * (y - mean(y)))
+  det <- S11 * S22 - S12^2
+  b1 <- (S22 * S1y - S12 * S2y) / det
+  b2 <- (S11 * S2y - S12 * S1y) / det
+  b0 <- mean(y) - b1 * mean(x1) - b2 * mean(x2)
+  aj <- b0 + b1 * x1 + b2 * x2; u <- y - aj
+  RSS <- sum(u^2); TSS <- sum((y - mean(y))^2); ESS <- TSS - RSS
+  k <- 2; gl <- n - k - 1; Se2 <- RSS / gl
+  V <- Se2 * matrix(c(S22, -S12, -S12, S11), 2, 2) / det
+  ## Regressao simples de y contra x1, para o vies de omissao
+  b1s <- S1y / S11; delta <- S12 / S11
+  list(n = n, k = k, gl = gl, r1 = r1, r2 = r2,
+       x1 = x1, x2 = x2, y = y, aj = aj, u = u,
+       mx1 = mean(x1), mx2 = mean(x2), my = mean(y),
+       S11 = S11, S22 = S22, S12 = S12, S1y = S1y, S2y = S2y, det = det,
+       b0 = b0, b1 = b1, b2 = b2, RSS = RSS, ESS = ESS, TSS = TSS,
+       Se2 = Se2, Se = sqrt(Se2), R2 = ESS / TSS,
+       R2aj = 1 - (RSS / gl) / (TSS / (n - 1)),
+       V = V, Sb1 = sqrt(V[1, 1]), Sb2 = sqrt(V[2, 2]), cov12 = V[1, 2],
+       t1 = b1 / sqrt(V[1, 1]), t2 = b2 / sqrt(V[2, 2]),
+       tc = qt(1 - alpha / 2, gl), alpha = alpha,
+       F = (ESS / k) / Se2, Fc = qf(1 - alpha, k, gl),
+       pF = pf((ESS / k) / Se2, k, gl, lower.tail = FALSE),
+       p1 = 2 * pt(abs(b1 / sqrt(V[1, 1])), gl, lower.tail = FALSE),
+       p2 = 2 * pt(abs(b2 / sqrt(V[2, 2])), gl, lower.tail = FALSE),
+       ic1 = b1 + c(-1, 1) * qt(1 - alpha / 2, gl) * sqrt(V[1, 1]),
+       ic2 = b2 + c(-1, 1) * qt(1 - alpha / 2, gl) * sqrt(V[2, 2]),
+       r12 = S12 / sqrt(S11 * S22), b1s = b1s, delta = delta,
+       vies = b1s - b1, RSSs = TSS - S1y^2 / S11,
+       ## regressao auxiliar de x1 contra x2 (Frisch-Waugh-Lovell)
+       aux = x1 - (mean(x1) + (S12 / S22) * (x2 - mean(x2))),
+       gamma1 = S12 / S22)
+}
+
+## Teste t de lambda1*b1 + lambda2*b2 = c, e o F equivalente por RSS.
+combinacao <- function(a, lambda, c0 = 0) {
+  theta <- sum(lambda * c(a$b1, a$b2))
+  v <- lambda[1]^2 * a$V[1, 1] + lambda[2]^2 * a$V[2, 2] +
+       2 * lambda[1] * lambda[2] * a$V[1, 2]
+  t <- (theta - c0) / sqrt(v)
+  list(theta = theta, var = v, S = sqrt(v), t = t, F = t^2,
+       Fc = qf(1 - a$alpha, 1, a$gl),
+       RSSr = a$RSS + t^2 * a$Se2)
+}
+
+## F de restrito contra irrestrito, a partir dos dois RSS.
+teste_F <- function(RSSr, RSSu, q, gl, alpha = 0.05) {
+  F <- ((RSSr - RSSu) / q) / (RSSu / gl)
+  list(F = F, q = q, gl = gl, Fc = qf(1 - alpha, q, gl),
+       p = pf(F, q, gl, lower.tail = FALSE))
+}
+
+## 03/09 -- conjunto com curvatura, usado nas secoes 1 a 3.
+##
+## Os dados vem de um processo gerador conhecido: Y = 20 + X^2 + u, com
+## u ~ N(0, 8^2) e n = 20. O ruido nao e enfeite -- sem ele os residuos sao
+## deterministicos e (P3), (P4) e (P6) nao chegam a ser avaliaveis, o que
+## esvazia a tabela de diagnostico. Os parametros do DGP ficam no proprio
+## contexto porque o slide de fechamento os revela e compara com o ajuste.
+ctx_curvatura <- function() {
+  d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+  a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+  ## Ajuste quadratico, que e a forma correta, e os diagnosticos do ajuste
+  ## linear. Usados na tabela de pressupostos e no slide que revela o DGP.
+  a$quad <- lm(Y ~ X + I(X^2), data = d)
+  a$diag <- diagnosticos(lm(Y ~ X, data = d))
+  a
+}
+
+## Os quatro diagnosticos que a tabela de pressupostos reporta. Cada um testa
+## uma pressuposicao distinta; nenhum deles testa (P1), que e escolha do
+## analista, nem (P5), que se le da propria coluna de X.
+diagnosticos <- function(modelo) {
+  list(bp = lmtest::bptest(modelo),
+       dw = lmtest::dwtest(modelo),
+       sw = shapiro.test(residuals(modelo)),
+       reset = lmtest::resettest(modelo, power = 2, type = "regressor"))
+}
+
+## 03/09 -- conjunto de potencia, exercicio no quadro
+ctx_potencia <- function() {
+  d <- dados("rls_potencia.csv")
+  a <- rls(log2(d$X), log2(d$Y)); a$dados <- d
+  a$b1_ln <- coef(lm(log(d$Y) ~ log(d$X)))[[2]]
+  a
+}
+
+## 10/09, 14/09, 17/09 -- as cinco firmas
+ctx_firmas <- function() {
+  f <- dados("firmas_bloco.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f; m
+}
+
+## 10/09 e 14/09 -- exercicio no quadro
+ctx_firmas_ex <- function() {
+  f <- dados("firmas_exercicio.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f; m
+}
+
+## 17/09 -- exercicio de retornos de escala
+ctx_cobb <- function() {
+  d <- dados("cobb_douglas_rss.csv")
+  c(as.list(d), teste_F(d$rss_restrito, d$rss_irrestrito, d$q, d$n - d$k - 1))
+}
+
+## 17/09 -- exercicio tipo ENADE
+ctx_enade <- function() {
+  co <- dados("enade_q31.csv"); meta <- dados("enade_q31_meta.csv")
+  b <- setNames(co$coeficiente, co$termo)
+  list(b = b, n = meta$n, E = meta$escolaridade_avaliada,
+       efeito = b[["G"]] + b[["ExG"]] * meta$escolaridade_avaliada)
+}
+
+## Curvas de uma forma funcional para varios valores de beta1. O argumento
+## `betas` e um vetor NOMEADO: o nome vira o rotulo do painel, em LaTeX.
+curva_forma <- function(tipo, betas, x = seq(0.3, 4, length.out = 300)) {
+  f <- switch(tipo,
+    "lin-lin"   = function(b) 2 + b * x,
+    "log-log"   = function(b) 2 * x^b,
+    "log-lin"   = function(b) exp(0.3 + b * x),
+    "lin-log"   = function(b) 3 + b * log(x),
+    "reciproco" = function(b) 3 + b / x,
+    stop("forma desconhecida: ", tipo))
+  d <- do.call(rbind, lapply(seq_along(betas), function(i) {
+    data.frame(x = x, y = f(betas[[i]]), painel = names(betas)[i])
+  }))
+  d$painel <- factor(d$painel, levels = names(betas))
+  d
+}
