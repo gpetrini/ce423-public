@@ -142,14 +142,46 @@ ctx_potencia <- function() {
   a
 }
 
-## 10/09, 14/09, 17/09 -- as cinco firmas
-ctx_firmas <- function() {
-  f <- dados("firmas_bloco.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f; m
+## Objetos matriciais de um ajuste com dois regressores. Separado de `rlm2`
+## porque a forma matricial e a apresentacao oficial do estimador desde
+## 2026-09-01 (ADR 0014 desta disciplina), enquanto `rlm2` continua operando em
+## somatorios: os dois caminhos precisam coexistir e produzir o mesmo numero.
+matricial <- function(m) {
+  X <- cbind(1, m$x1, m$x2); y <- m$y
+  XtX <- t(X) %*% X; Xty <- t(X) %*% y; XtXinv <- solve(XtX)
+  c(m, list(X = X, vy = y, XtX = XtX, Xty = Xty, XtXinv = XtXinv,
+            bvec = as.vector(XtXinv %*% Xty),
+            uvec = as.vector(y - X %*% (XtXinv %*% Xty))))
 }
 
-## 10/09 e 14/09 -- exercicio no quadro
+## 10/09, 14/09, 17/09 -- o exemplo ficticio do bloco de RLM.
+##
+## Os dados vem de um processo gerador conhecido: Y = 10 + 3L + 5K + u, com
+## u ~ N(0, 10^2) e n = 20, gerado por code/gera_firmas_bloco.R com semente fixa.
+## O exemplo NAO e deterministico (ADR 0013): beta_hat difere de beta, e a
+## comparacao entre os dois fecha a aula de estimacao. Os parametros do DGP
+## ficam no proprio contexto porque o slide de revelacao os exibe.
+ctx_firmas <- function() {
+  f <- dados("firmas_bloco.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f
+  m$dgp <- list(b0 = 10, b1 = 3, b2 = 5, sigma = 10)
+  matricial(m)
+}
+
+## 10/09 e 14/09 -- exercicio de fixacao
 ctx_firmas_ex <- function() {
-  f <- dados("firmas_exercicio.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f; m
+  f <- dados("firmas_exercicio.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f
+  matricial(m)
+}
+
+## 10/09 -- exercicio de fixacao em notacao matricial. Quatro observacoes
+## desenhadas para que a conta feche a mao: X'X e X'y sao inteiros, os desvios
+## sao inteiros, o determinante em desvios e 100 e beta sai (10, 2, 3) exato.
+## Os residuos, (1, -1, -1, 1), sao ortogonais aos dois regressores por
+## construcao -- de modo que o ajuste nao e perfeito e a ANOVA tem o que somar.
+ctx_matricial <- function() {
+  d <- dados("obs_matricial.csv")
+  m <- rlm2(d$X1, d$X2, d$Y, r1 = "X_1", r2 = "X_2"); m$dados <- d
+  matricial(m)
 }
 
 ## 17/09 -- exercicio de retornos de escala

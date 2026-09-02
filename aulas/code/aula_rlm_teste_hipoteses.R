@@ -1,13 +1,13 @@
 source("code/bloco_setup.R"); m <- ctx_firmas()
-eq(sprintf("\\hat Y_i = %s %s L_i %s K_i", ni(m$b0), ns(m$b1, 0), ns(m$b2, 0)))
+eq(sprintf("\\hat Y_i = %s %s L_i %s K_i", nm(m$b0, 2), ns(m$b1, 0), ns(m$b2, 0)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
-tab(data.frame(`$S_{LL}$` = ni(m$S11), `$S_{KK}$` = ni(m$S22), `$S_{LK}$` = ni(m$S12),
-               `$\\det$` = ni(m$det), `RSS` = ni(m$RSS), `$S_e^2$` = ni(m$Se2),
+tab(data.frame(`$S_{LL}$` = nm(m$S11, 1), `$S_{KK}$` = nm(m$S22, 1), `$S_{LK}$` = nm(m$S12, 1),
+               `$\\det$` = nm(m$det, 1), `RSS` = nm(m$RSS, 1), `$S_e^2$` = nm(m$Se2, 2),
                `$n-k-1$` = ni(m$gl), check.names = FALSE),
     caption = "Somas de desvios do exemplo")
 cat(sprintf("\nTambém: $\\text{ESS} = %s$, $\\text{TSS} = %s$, $R^2 = %s$ e $F = %s$.\n",
-            ni(m$ESS), ni(m$TSS), nm(m$R2, 3), ni(m$F)))
+            nm(m$ESS, 1), nm(m$TSS, 1), nm(m$R2, 3), nm(m$F, 1)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 cat(sprintf("Com $r_{LK} = %s$, o fator $1/(1-%s) = %s$: a variância é cerca de %s vezes a que seria com regressores não correlacionados.\n",
@@ -15,17 +15,16 @@ cat(sprintf("Com $r_{LK} = %s$, o fator $1/(1-%s) = %s$: a variância é cerca d
             nm(1 / (1 - m$r12^2), 1)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
-eq(sprintf("S_{\\hat\\beta_1} = \\sqrt{%s} = \\sqrt{%s} = %s, \\qquad S_{\\hat\\beta_2} = \\sqrt{%s} = %s.",
-           frac("S_e^2 \\, S_{KK}", "\\det"),
-           frac(sprintf("%s \\times %s", ni(m$Se2), ni(m$S22)), ni(m$det)), nm(m$Sb1, 3),
-           frac(sprintf("%s \\times %s", ni(m$Se2), ni(m$S11)), ni(m$det)), nm(m$Sb2, 3)))
+eq(sprintf("S_{\\hat\\beta_1} = \\sqrt{%s} = %s, \\qquad S_{\\hat\\beta_2} = \\sqrt{%s} = %s.",
+           frac("S_e^2 \\, S_{KK}", "\\det"), nm(m$Sb1, 3),
+           frac("S_e^2 \\, S_{LL}", "\\det"), nm(m$Sb2, 3)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas(); d <- m$dados
 co <- summary(lm(Y ~ L + K, data = d))$coefficients
 tab(data.frame(Coeficiente = c("$\\hat\\beta_0$", "$\\hat\\beta_1$ ($L$)", "$\\hat\\beta_2$ ($K$)"),
-               Estimativa = paste0("$", ni(co[, 1]), "$"),
+               Estimativa = paste0("$", nm(co[, 1], 2), "$"),
                `Erro padrão` = paste0("$", nm(co[, 2], 3), "$"), check.names = FALSE),
-    caption = "Estimativas e erros padrão", tamanho = "small")
+    caption = "Estimativas e erros padrão", tamanho = "scriptsize")
 
 source("code/bloco_setup.R"); library(ggplot2)
 m <- ctx_firmas(); d <- m$dados
@@ -51,8 +50,8 @@ fig_salva("ic_coeficientes_firmas.pdf", p, largura = 5.2, altura = 1.50,
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 eq(sprintf("t(\\hat\\beta_1) = %s = %s, \\qquad t(\\hat\\beta_2) = %s = %s.",
-           frac(ni(m$b1), nm(m$Sb1, 3)), nm(m$t1, 2),
-           frac(ni(m$b2), nm(m$Sb2, 3)), nm(m$t2, 2)))
+           frac(nm(m$b1, 2), nm(m$Sb1, 3)), nm(m$t1, 2),
+           frac(nm(m$b2, 2), nm(m$Sb2, 3)), nm(m$t2, 2)))
 cat(sprintf("\nO valor crítico é $t_{%s}(%s) = %s$.\n", nm(m$alpha / 2, 3), ni(m$gl), nm(m$tc, 2)))
 eq(sprintf("%s < %s \\quad\\text{e}\\quad %s > %s.",
            nm(m$t1, 2), nm(m$tc, 2), nm(m$t2, 2), nm(m$tc, 2)))
@@ -81,15 +80,15 @@ source("code/bloco_setup.R"); m <- ctx_firmas()
 eq(sprintf("|t(\\hat\\beta_1)| = %s < %s = t_{%s}(%s) \\qquad\\Longrightarrow\\qquad \\text{não se rejeita } H_0: \\beta_1 = 0.",
            nm(m$t1, 2), nm(m$tc, 2), nm(m$alpha / 2, 3), ni(m$gl)))
 cat(sprintf("\nO coeficiente do trabalho é $%s$, tem o sinal esperado, e ainda assim não é distinguível de zero a $%s\\%%$.\n",
-            ni(m$b1), ni(100 * m$alpha)))
+            nm(m$b1, 2), ni(100 * m$alpha)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 eq(sprintf("\\hat\\beta_1 \\pm t_{%s}(%s)\\, S_{\\hat\\beta_1} = %s \\pm %s \\times %s = %s.",
-           nm(m$alpha / 2, 3), ni(m$gl), ni(m$b1), nm(m$tc, 2), nm(m$Sb1, 3), iv(m$ic1)))
+           nm(m$alpha / 2, 3), ni(m$gl), nm(m$b1, 2), nm(m$tc, 2), nm(m$Sb1, 3), iv(m$ic1)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas(); c0 <- 1
 eq(sprintf("H_0: \\beta_1 = %s \\qquad t = %s = %s < %s.",
-           ni(c0), frac(sprintf("%s - %s", ni(m$b1), ni(c0)), nm(m$Sb1, 3)),
+           ni(c0), frac(sprintf("%s - %s", nm(m$b1, 2), ni(c0)), nm(m$Sb1, 3)),
            nm((m$b1 - c0) / m$Sb1, 2), nm(m$tc, 2)))
 cat(sprintf("\nTambém não se rejeita. Esta amostra é compatível tanto com $\\beta_1 = 0$ quanto com $\\beta_1 = %s$ --- o que é uma afirmação honesta sobre quão pouco ela informa.\n", ni(c0)))
 
@@ -112,14 +111,14 @@ cat(sprintf("\nRejeita-se $H_0$ quando $p < \\alpha$. Com $\\alpha = %s$: $K$ si
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 eq(sprintf("F = %s = %s, \\qquad p = %s.", frac("\\text{ESS}/k", "\\text{RSS}/(n-k-1)"),
-           ni(m$F), nm(m$pF, 3)))
+           nm(m$F, 1), nm(m$pF, 3)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 dec <- function(p) if (p < m$alpha) "rejeita" else "não rejeita"
 tab(data.frame(
   Teste = c("$H_0: \\beta_1 = 0$", "$H_0: \\beta_2 = 0$", "$H_0: \\beta_1 = \\beta_2 = 0$"),
   Estatística = paste0("$", c(sprintf("t = %s", nm(m$t1, 2)), sprintf("t = %s", nm(m$t2, 2)),
-                              sprintf("F = %s", ni(m$F))), "$"),
+                              sprintf("F = %s", nm(m$F, 1))), "$"),
   `$p$-valor` = paste0("$", nm(c(m$p1, m$p2, m$pF), 3), "$"),
   `Decisão` = sapply(c(m$p1, m$p2, m$pF), dec),
   check.names = FALSE),

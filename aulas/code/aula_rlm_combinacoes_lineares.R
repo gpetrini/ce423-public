@@ -1,18 +1,21 @@
 source("code/bloco_setup.R"); m <- ctx_firmas()
 dec <- function(p) if (p < m$alpha) "rejeita" else "não rejeita"
-cat(sprintf("$\\hat Y = %s %s L %s K$\n\n", ni(m$b0), ns(m$b1, 0), ns(m$b2, 0)))
+cat(sprintf("$\\hat Y = %s %s L %s K$\n\n", nm(m$b0, 2), ns(m$b1, 0), ns(m$b2, 0)))
 tab(data.frame(
   `Hipótese` = c("$H_0: \\beta_1 = 0$", "$H_0: \\beta_2 = 0$", "$H_0: \\beta_1 = \\beta_2 = 0$"),
   `Estatística` = paste0("$", c(sprintf("t = %s", nm(m$t1, 2)), sprintf("t = %s", nm(m$t2, 2)),
-                                sprintf("F = %s", ni(m$F))), "$"),
+                                sprintf("F = %s", nm(m$F, 1))), "$"),
   `Decisão` = sapply(c(m$p1, m$p2, m$pF), dec), check.names = FALSE),
     caption = "Estimativas e $p$-valores do exemplo")
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
-cat(sprintf("Para o modelo das cinco firmas, com $S_e^2 = %s$ e $\\det = %s$:\n", ni(m$Se2), ni(m$det)))
-eq(sprintf("\\Var(\\hat\\beta_1) = %s = %s = %s, \\qquad \\Cov(\\hat\\beta_1,\\hat\\beta_2) = -%s = -%s = %s.",
-           frac("S_e^2 S_{KK}", "\\det"), frac(ni(m$Se2 * m$S22), ni(m$det)), nm(m$V[1,1], 3),
-           frac("S_e^2 S_{LK}", "\\det"), frac(ni(m$Se2 * m$S12), ni(m$det)), nm(m$cov12, 3)))
+cat(sprintf("Para o modelo das firmas, com $S_e^2 = %s$ e $\\det = %s$:\n", nm(m$Se2, 2), nm(m$det, 1)))
+## Sem a substituicao numerica intermediaria: com o exemplo em n = 20 ela tem
+## cinco digitos em cada fracao e a linha transborda 48 pt. Os tres valores que
+## entram na conta estao na tabela de somas do frame anterior.
+eq(sprintf("\\Var(\\hat\\beta_1) = %s = %s, \\qquad \\Cov(\\hat\\beta_1,\\hat\\beta_2) = -%s = %s.",
+           frac("S_e^2 S_{KK}", "\\det"), nm(m$V[1,1], 3),
+           frac("S_e^2 S_{LK}", "\\det"), nm(m$cov12, 3)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 tab(data.frame(` ` = c("$\\hat\\beta_1$", "$\\hat\\beta_2$"),
@@ -36,16 +39,24 @@ eq(sprintf("\\underbrace{S_{\\hat\\beta_1} = %s}_{\\text{um coeficiente}} \\qqua
 source("code/bloco_setup.R"); m <- ctx_firmas(); cd <- combinacao(m, c(1, -1))
 cat("Testando $H_0: \\beta_1 = \\beta_2$, isto é $\\lambda = (1,-1)$ e $c = 0$:\n")
 eq(sprintf("\\hat\\theta = %s - %s = %s, \\qquad t = %s = %s, \\qquad |t| %s %s.",
-           ni(m$b1), ni(m$b2), ni(cd$theta),
-           frac(ni(cd$theta), nm(cd$S, 3)), nm(cd$t, 2),
+           nm(m$b1, 2), nm(m$b2, 2), nm(cd$theta, 2),
+           frac(nm(cd$theta, 2), nm(cd$S, 3)), nm(cd$t, 2),
            if (abs(cd$t) < m$tc) "<" else ">", nm(m$tc, 2)))
 
-source("code/bloco_setup.R"); m <- ctx_firmas(); c0 <- 6; cs <- combinacao(m, c(1, 1), c0)
+source("code/bloco_setup.R"); m <- ctx_firmas(); c0 <- 8; cs <- combinacao(m, c(1, 1), c0)
 cat(sprintf("Testando $H_0: \\beta_1 + \\beta_2 = %s$, com $\\lambda = (1,1)$:\n", ni(c0)))
 eq(sprintf("\\hat\\theta = %s + %s = %s, \\qquad t = %s = %s, \\qquad |t| %s %s.",
-           ni(m$b1), ni(m$b2), ni(cs$theta),
-           frac(sprintf("%s - %s", ni(cs$theta), ni(c0)), nm(cs$S, 3)), nm(cs$t, 2),
+           nm(m$b1, 2), nm(m$b2, 2), nm(cs$theta, 2),
+           frac(sprintf("%s - %s", nm(cs$theta, 2), ni(c0)), nm(cs$S, 3)), nm(cs$t, 2),
            if (abs(cs$t) < m$tc) "<" else ">", nm(m$tc, 2)))
+
+source("code/bloco_setup.R"); m <- ctx_firmas()
+cd <- combinacao(m, c(1, -1)); cs <- combinacao(m, c(1, 1), 8)
+## A decisao e DERIVADA dos numeros, e nao afirmada em prosa: e o que impede a
+## frase de ficar falsa quando o exemplo muda -- ver MISTAKES.md 26.
+cat(sprintf("Nenhuma das duas é rejeitada, e por motivos opostos. Na diferença, a discrepância é de $%s$ contra erro padrão de $%s$. Na soma, a discrepância é de $%s$ contra erro padrão de $%s$.\n",
+            nm(abs(cd$theta), 2), nm(cd$S, 2),
+            nm(abs(cs$theta - 8), 2), nm(cs$S, 2)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas(); d <- m$dados
 RSSr <- sum(resid(lm(Y ~ I(L + K), data = d))^2)
@@ -54,16 +65,16 @@ tab(data.frame(Modelo = c("Irrestrito", "Restrito"),
                `Parâmetros` = paste0("$", ni(c(m$k + 1, m$k)), "$"), check.names = FALSE),
     caption = "RSS do modelo irrestrito e do restrito")
 cat(sprintf("\nA restrição custou $%s - %s = %s$ em soma de quadrados dos resíduos.\n",
-            ni(RSSr), ni(m$RSS), ni(RSSr - m$RSS)))
+            ni(RSSr), nm(m$RSS, 1), ni(RSSr - m$RSS)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas(); d <- m$dados
 RSSr <- sum(resid(lm(Y ~ I(L + K), data = d))^2)
 tf <- teste_F(RSSr, m$RSS, 1, m$gl, m$alpha)
 cat(sprintf("No exemplo, $q = %s$:\n", ni(tf$q)))
 eq(sprintf("F = %s = %s = %s.",
-           frac(sprintf("(%s-%s)/%s", ni(RSSr), ni(m$RSS), ni(tf$q)),
-                sprintf("%s/%s", ni(m$RSS), ni(m$gl))),
-           frac(ni(RSSr - m$RSS), ni(m$Se2)), ni(tf$F)))
+           frac(sprintf("(%s-%s)/%s", ni(RSSr), nm(m$RSS, 1), ni(tf$q)),
+                sprintf("%s/%s", nm(m$RSS, 1), ni(m$gl))),
+           frac(ni(RSSr - m$RSS), nm(m$Se2, 2)), ni(tf$F)))
 cat(sprintf("\nSob $H_0$, $F$ segue distribuição $F(q,\\ n-k-1)$ --- aqui, $F(%s,%s)$, cujo valor crítico a $%s\\%%$ é $%s$. Não se rejeita.\n",
             ni(tf$q), ni(tf$gl), ni(100 * m$alpha), nm(tf$Fc, 2)))
 
@@ -95,16 +106,16 @@ cat("\\end{axis}\n\\end{tikzpicture}\n")
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 cat(sprintf("Densidade $F(%s,%s)$, com o crítico a $%s\\%%$ em $%s$. O $F$ global do modelo, $%s$, cai muito à direita do eixo mostrado.\n",
-            ni(m$k), ni(m$gl), ni(100 * m$alpha), nm(m$Fc, 1), ni(m$F)))
+            ni(m$k), ni(m$gl), ni(100 * m$alpha), nm(m$Fc, 1), nm(m$F, 1)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 cd <- combinacao(m, c(1, -1)); cs <- combinacao(m, c(1, 1), 6)
 cat(sprintf("Verificando com $H_0: \\beta_1 = \\beta_2$: $t = %s$ e $t^2 = %s = F$. E os críticos também correspondem: $t_{%s}(%s)^2 = %s^2 = %s = F_{%s}(1,%s)$.\n\n",
-            nm(cd$t, 2), ni(cd$F), nm(m$alpha / 2, 3), ni(m$gl), nm(m$tc, 2),
+            nm(cd$t, 2), nm(cd$F, 1), nm(m$alpha / 2, 3), ni(m$gl), nm(m$tc, 2),
             nm(m$tc^2, 2), nm(m$alpha, 2), ni(m$gl)))
 cat(sprintf("Testando $H_0: \\beta_1 + \\beta_2 = 6$ pelos dois caminhos: $\\text{RSS}_r = %s$, logo $F = (%s-%s)/(%s/%s) = %s$, e $t^2 = %s^2 = %s$.\n",
-            ni(cs$RSSr), ni(cs$RSSr), ni(m$RSS), ni(m$RSS), ni(m$gl), ni(cs$F),
-            nm(cs$t, 2), ni(cs$F)))
+            nm(cs$RSSr, 1), nm(cs$RSSr, 1), nm(m$RSS, 1), nm(m$RSS, 1), ni(m$gl), nm(cs$F, 1),
+            nm(cs$t, 2), nm(cs$F, 1)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
 cd <- combinacao(m, c(1, -1)); cs <- combinacao(m, c(1, 1), 6)
@@ -113,8 +124,8 @@ tab(data.frame(
                  "$\\beta_1 = \\beta_2 = 0$"),
   `$q$` = paste0("$", c(1, 1, 1, m$k), "$"),
   Teste = c("$t$, ou $F$ com $q=1$", "$t$ da combinação, ou $F$", "idem", "$F$"),
-  `No exemplo` = paste0("$", c(sprintf("t = %s", nm(m$t1, 2)), sprintf("F = %s", ni(cd$F)),
-                               sprintf("F = %s", ni(cs$F)), sprintf("F = %s", ni(m$F))), "$"),
+  `No exemplo` = paste0("$", c(sprintf("t = %s", nm(m$t1, 2)), sprintf("F = %s", nm(cd$F, 1)),
+                               sprintf("F = %s", nm(cs$F, 1)), sprintf("F = %s", nm(m$F, 1))), "$"),
   check.names = FALSE),
     caption = "A família de testes $F$, de $q=1$ a $q=k$")
 

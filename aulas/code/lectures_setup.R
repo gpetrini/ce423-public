@@ -14,8 +14,14 @@ ni <- function(x) formatC(round(x) + 0, format = "d")
 
 ## Numero com sinal explicito, para vies e diferencas. O sinal e decidido DEPOIS
 ## do arredondamento, senao -0,001 com d = 2 sairia como "-0{,}00".
+##
+## Vetorizado, como `nm` e `ni`. A versao anterior usava `if`, que so olha o
+## primeiro elemento: chamada com um vetor de residuos ela abortava o bloco, e
+## a tabela sumia do slide sem erro de compilacao. Corrigido em 2026-09-01, na
+## primeira vez em que um exemplo passou a ter n grande o bastante para que a
+## coluna de residuos fosse formatada de uma vez.
 ns <- function(x, d = 2) {
-  paste0(if (round(x, d) < 0) "-" else "+", nm(abs(x), d))
+  paste0(ifelse(round(x, d) < 0, "-", "+"), nm(abs(x), d))
 }
 
 ## Intervalo no formato [a; b]
@@ -49,6 +55,22 @@ fig <- function(nome) {
 
 frac <- function(a, b) sprintf("\\frac{%s}{%s}", a, b)
 cx   <- function(x) sprintf("\\boxed{%s}", x)
+
+## Matriz em LaTeX, para os decks que operam em notacao matricial. Aceita
+## matriz, vetor ou data.frame; conteudo numerico passa por `fmt` (por omissao
+## `ni`, inteiro) e conteudo de texto vai intacto, de modo que a mesma funcao
+## serve tanto para a matriz de dados quanto para uma matriz de simbolos.
+##
+## O ambiente e `pmatrix` por omissao. Vetor sem dimensao vira COLUNA: e o que
+## y, u e beta sao em y = X beta + u, e a alternativa (linha) estaria errada
+## em toda ocorrencia desta disciplina.
+mat <- function(x, fmt = ni, env = "pmatrix") {
+  if (is.null(dim(x))) x <- matrix(x, ncol = 1) else x <- as.matrix(x)
+  celulas <- if (is.numeric(x)) matrix(fmt(x), nrow(x)) else x
+  linhas <- apply(celulas, 1, paste, collapse = " & ")
+  sprintf("\\begin{%s}%s\\end{%s}", env,
+          paste0(" ", paste(linhas, collapse = " \\\\ "), " "), env)
+}
 
 ## Salva um ggplot em figs/ e emite a inclusao para o Org, numa chamada so.
 ##
@@ -124,8 +146,14 @@ fig_salva <- function(nome, plot, largura = 6, altura = 3.2,
     dir.create(cache, recursive = TRUE, showWarnings = FALSE)
     options(tikzMetricsDictionary = file.path(cache, "metricas"),
             tikzDefaultEngine = "pdftex",
+            ## amsmath entra porque o rotulo de um grafico legitimamente usa
+            ## \\text{} dentro de matematica. Sem ele o tikzDevice nao consegue
+            ## MEDIR a string, o bloco morre, e a exportacao deixa em figs/ um
+            ## .tex de cabecalho vazio -- o deck compila, sem figura e sem erro.
+            ## Verificado em 2026-09-01 no painel de wage1.
             tikzMetricPackages = c("\\usepackage[T1]{fontenc}",
                                    "\\usepackage[utf8]{inputenc}",
+                                   "\\usepackage{amsmath}",
                                    "\\usepackage[lining,tabular]{ebgaramond}",
                                    "\\usetikzlibrary{calc}"))
     tikzDevice::tikz(caminho, width = largura, height = altura,
@@ -135,8 +163,13 @@ fig_salva <- function(nome, plot, largura = 6, altura = 3.2,
     ## para todo rotulo acentuado, mesmo quando a medicao funciona -- e o que os
     ## pacotes de metrica acima garantem. Silenciado por mensagem, nao em bloco,
     ## para que avisos de verdade do ggplot continuem chegando.
+    ## `plot` costuma ser um ggplot, e entao basta imprimi-lo. Quando e uma
+    ## FUNCAO de zero argumentos, ela e chamada aqui: e o unico caminho para os
+    ## graficos de base, que desenham por efeito colateral no dispositivo e nao
+    ## produzem objeto para imprimir. Existe por causa do plano ajustado em tres
+    ## dimensoes (`persp`), que o ggplot2 nao faz.
     withCallingHandlers(
-      print(plot),
+      if (is.function(plot)) plot() else print(plot),
       warning = function(w) {
         if (grepl("Unicode string", conditionMessage(w), fixed = TRUE))
           invokeRestart("muffleWarning")
