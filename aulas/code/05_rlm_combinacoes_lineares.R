@@ -209,7 +209,10 @@ p <- ggplot(g, aes(est, rotulo)) +
 fig_salva("combinacao_exper_tenure.pdf", p, largura = 5.2, altura = 1.15,
           alt = "Intervalos de confiança de exper, de tenure e da diferença entre os dois, com uma linha tracejada no zero.")
 
-source("code/bloco_setup.R"); cb <- ctx_cobb()
+source("code/bloco_setup.R")
+dcb <- dados("cobb_douglas_rss.csv")
+cb <- c(as.list(dcb), teste_F(dcb$rss_restrito, dcb$rss_irrestrito, dcb$q,
+                              dcb$n - dcb$k - 1))
 cat(sprintf("Uma função de produção Cobb--Douglas foi estimada em log-log com $n = %s$ firmas e %s regressores ($\\log L$ e $\\log K$). Obteve-se:\n\n",
             ni(cb$n), ni(cb$k)))
 tab(data.frame(Modelo = c("Irrestrito", "Restrito a $\\beta_1 + \\beta_2 = 1$"),
@@ -217,7 +220,10 @@ tab(data.frame(Modelo = c("Irrestrito", "Restrito a $\\beta_1 + \\beta_2 = 1$"),
                check.names = FALSE),
     caption = "Dados do exercício")
 
-source("code/bloco_setup.R"); cb <- ctx_cobb()
+source("code/bloco_setup.R")
+dcb <- dados("cobb_douglas_rss.csv")
+cb <- c(as.list(dcb), teste_F(dcb$rss_restrito, dcb$rss_irrestrito, dcb$q,
+                              dcb$n - dcb$k - 1))
 cat(sprintf("\\alert{Item 1.} $q = %s$ restrição. Graus de liberdade: $%s$ no numerador e $n-k-1 = %s-%s-1 = %s$ no denominador.\n",
             ni(cb$q), ni(cb$q), ni(cb$n), ni(cb$k), ni(cb$gl)))
 cat("\n\\alert{Item 2.}\n")
@@ -232,7 +238,11 @@ cat(sprintf("\n\\alert{Item 3.} $F_{0{,}05}(%s,%s) = %s$, e $%s %s %s$: %s $H_0$
             if (cb$F > cb$Fc) "rejeita-se" else "não se rejeita", nm(cb$p, 4)))
 cat("\n\\alert{Item 4.} Os dados não são compatíveis com retornos constantes de escala nesta amostra de firmas.\n")
 
-source("code/bloco_setup.R"); e <- ctx_enade(); b <- e$b
+source("code/bloco_setup.R")
+co <- dados("enade_q31.csv"); meta <- dados("enade_q31_meta.csv")
+b <- setNames(co$coeficiente, co$termo)
+e <- list(b = b, n = meta$n, E = meta$escolaridade_avaliada,
+          efeito = b[["G"]] + b[["ExG"]] * meta$escolaridade_avaliada)
 cat(sprintf("Estimou-se, com $n = %s$ trabalhadores, o modelo\n", ni(e$n)))
 eq(sprintf("\\log(S) = %s %s\\,G %s\\,E %s\\,X %s\\,(E \\times G),",
            nm(b[["intercepto"]], 1), ns(b[["G"]], 2), ns(b[["E"]], 2),
@@ -248,12 +258,20 @@ cat("\\begin{enumerate}\n")
 cat(sprintf("  \\item[(%s)] %s\n", LETTERS[seq_along(alt)], alt), sep = "")
 cat("\\end{enumerate}\n")
 
-source("code/bloco_setup.R"); e <- ctx_enade(); b <- e$b
+source("code/bloco_setup.R")
+co <- dados("enade_q31.csv"); meta <- dados("enade_q31_meta.csv")
+b <- setNames(co$coeficiente, co$termo)
+e <- list(b = b, n = meta$n, E = meta$escolaridade_avaliada,
+          efeito = b[["G"]] + b[["ExG"]] * meta$escolaridade_avaliada)
 eq(sprintf("\\frac{\\partial \\log S}{\\partial G} = %s %s\\,E \\qquad\\Longrightarrow\\qquad E = %s:\\ %s",
            nm(b[["G"]], 2), ns(b[["ExG"]], 3), ni(e$E),
            cx(sprintf("%s %s = %s", nm(b[["G"]], 2), ns(b[["ExG"]] * e$E, 2), nm(e$efeito, 2)))))
 
-source("code/bloco_setup.R"); e <- ctx_enade(); b <- e$b
+source("code/bloco_setup.R")
+co <- dados("enade_q31.csv"); meta <- dados("enade_q31_meta.csv")
+b <- setNames(co$coeficiente, co$termo)
+e <- list(b = b, n = meta$n, E = meta$escolaridade_avaliada,
+          efeito = b[["G"]] + b[["ExG"]] * meta$escolaridade_avaliada)
 tab(data.frame(Alternativa = c("(B)", "(C)", "(D)", "(E)"),
   `Por que está errada` = c(
     "Ignora a interação; o diferencial seria constante só se $\\beta_{EG} = 0$.",

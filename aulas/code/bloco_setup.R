@@ -21,7 +21,7 @@ desvios <- function(x, y) {
        Sxy = sum((x - mean(x)) * (y - mean(y))))
 }
 
-## Tudo o que os slides de 03/09 precisam de um ajuste simples.
+## Tudo o que os slides de 03/09 e 10/09 precisam de um ajuste simples.
 rls <- function(x, y, alpha = 0.05) {
   d <- desvios(x, y); n <- d$n
   b1 <- d$Sxy / d$Sxx; b0 <- d$my - b1 * d$mx
@@ -48,7 +48,37 @@ previsao <- function(a, x0) {
        ic_prev = aj + c(-1, 1) * a$tc * Sprev)
 }
 
-## Tudo o que os slides de 10/09, 14/09 e 17/09 precisam. Nomes x1 e x2 sao os
+## Teste t de um coeficiente contra um valor de referencia c0. Devolve os dois
+## valores criticos e os dois valores-p, porque a aula compara a decisao
+## bilateral com a unilateral no MESMO numero: e ali que se ve que um intervalo
+## a 95% pode conter c0 sem contradizer um teste unilateral que rejeita.
+teste_t <- function(est, S, gl, c0 = 0, alpha = 0.05) {
+  t <- (est - c0) / S
+  list(c0 = c0, est = est, S = S, gl = gl, alpha = alpha, t = t,
+       tc_bi = qt(1 - alpha / 2, gl), tc_uni = qt(1 - alpha, gl),
+       p_bi = 2 * pt(abs(t), gl, lower.tail = FALSE),
+       p_dir = pt(t, gl, lower.tail = FALSE),
+       ic = est + c(-1, 1) * qt(1 - alpha / 2, gl) * S)
+}
+
+## Reamostragem do processo gerador de um contexto de RLS. Os X ficam FIXOS,
+## como (P2) supoe: de amostra para amostra muda o erro, nunca o regressor.
+## Serve as duas figuras que materializam a distribuicao amostral -- o feixe de
+## curvas ajustadas e o histograma de beta_1 contra a normal teorica.
+amostras_dgp <- function(a, R = 2000, semente = 20260910) {
+  set.seed(semente)
+  g <- a$dgp
+  sim <- vapply(seq_len(R), function(i) {
+    y <- g$b0 + g$b1 * a$x + rnorm(a$n, 0, g$sigma)
+    coef(lm(y ~ a$x))
+  }, numeric(2))
+  list(R = R, b0 = sim[1, ], b1 = sim[2, ],
+       ## Desvio padrao TEORICO de beta_1, com o sigma do processo gerador:
+       ## e contra ele que o histograma e comparado, e nao contra o estimado.
+       sd_b1 = g$sigma / sqrt(a$Sxx))
+}
+
+## Tudo o que os slides de 14/09, 17/09 e 24/09 precisam. Nomes x1 e x2 sao os
 ## rotulos que aparecem nas formulas (ex.: "L" e "K").
 rlm2 <- function(x1, x2, y, alpha = 0.05, r1 = "L", r2 = "K") {
   n <- length(y)
@@ -107,21 +137,61 @@ teste_F <- function(RSSr, RSSu, q, gl, alpha = 0.05) {
        p = pf(F, q, gl, lower.tail = FALSE))
 }
 
-## 03/09 -- conjunto com curvatura, usado nas secoes 1 a 3.
+## Contribuicao marginal de x2 depois de x1, na leitura da ANOVA: o quanto a
+## SQReg cresce ao passar do modelo restrito ao irrestrito.
 ##
-## Os dados vem de um processo gerador conhecido: Y = 20 + X^2 + u, com
-## u ~ N(0, 8^2) e n = 20. O ruido nao e enfeite -- sem ele os residuos sao
-## deterministicos e (P3), (P4) e (P6) nao chegam a ser avaliaveis, o que
-## esvazia a tabela de diagnostico. Os parametros do DGP ficam no proprio
-## contexto porque o slide de fechamento os revela e compara com o ajuste.
-ctx_curvatura <- function() {
-  d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
-  a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
-  ## Ajuste quadratico, que e a forma correta, e os diagnosticos do ajuste
-  ## linear. Usados na tabela de pressupostos e no slide que revela o DGP.
-  a$quad <- lm(Y ~ X + I(X^2), data = d)
-  a$diag <- diagnosticos(lm(Y ~ X, data = d))
-  a
+## E a MESMA quantidade que RSSr - RSSu, porque TSS nao depende do modelo
+## ajustado -- o que a regressao ganha, o residuo perde. A funcao devolve as
+## duas leituras para que o deck exiba a identidade em vez de afirma-la.
+##
+## `ordem` diz qual regressor entra primeiro. Ela importa: a soma de quadrados
+## sequencial de um regressor depende do que ja esta no modelo, e so coincide
+## entre as duas ordens quando S12 = 0.
+contribuicao <- function(m, ordem = c("x1", "x2")) {
+  ordem <- match.arg(ordem)
+  ## SQReg do modelo restrito, com um regressor so.
+  ESSr <- if (ordem == "x1") m$S1y^2 / m$S11 else m$S2y^2 / m$S22
+  RSSr <- m$TSS - ESSr
+  cont <- m$ESS - ESSr
+  ft <- teste_F(RSSr, m$RSS, 1, m$gl, m$alpha)
+  c(list(primeiro = if (ordem == "x1") m$r1 else m$r2,
+         marginal = if (ordem == "x1") m$r2 else m$r1,
+         ESSr = ESSr, ESSu = m$ESS, RSSr = RSSr, RSSu = m$RSS,
+         cont = cont, glr = 1, glu = 2,
+         QMr = ESSr, QMcont = cont, QMres = m$Se2,
+         R2r = ESSr / m$TSS, R2u = m$R2,
+         ## Fracao da variabilidade AINDA NAO explicada que o novo regressor
+         ## explica. E o coeficiente de determinacao parcial, e o deck usa a
+         ## coincidencia para ligar as duas metades da aula.
+         r2parcial = cont / RSSr),
+    ft)
+}
+
+## Correlacoes simples e parciais de um ajuste com dois regressores.
+##
+## Os vetores de residuos vao junto porque a construcao em tres passos
+## (Frisch-Waugh-Lovell) e exibida como figura: a correlacao parcial e a
+## correlacao SIMPLES entre o que sobra de Y e o que sobra de X1, uma vez
+## descontado X2 de ambos.
+parcial <- function(m) {
+  rY1 <- m$S1y / sqrt(m$S11 * m$TSS)
+  rY2 <- m$S2y / sqrt(m$S22 * m$TSS)
+  r12 <- m$r12
+  rY1_2 <- (rY1 - rY2 * r12) / sqrt((1 - r12^2) * (1 - rY2^2))
+  rY2_1 <- (rY2 - rY1 * r12) / sqrt((1 - r12^2) * (1 - rY1^2))
+  list(rY1 = rY1, rY2 = rY2, r12 = r12,
+       rY1_2 = rY1_2, rY2_1 = rY2_1,
+       r2Y1_2 = rY1_2^2, r2Y2_1 = rY2_1^2,
+       ## Residuos dos dois ajustes auxiliares, nas duas direcoes.
+       ey2 = m$y - (m$my + (m$S2y / m$S22) * (m$x2 - m$mx2)),
+       e12 = m$x1 - (m$mx1 + (m$S12 / m$S22) * (m$x2 - m$mx2)),
+       ey1 = m$y - (m$my + (m$S1y / m$S11) * (m$x1 - m$mx1)),
+       e21 = m$x2 - (m$mx2 + (m$S12 / m$S11) * (m$x1 - m$mx1)),
+       ## A determinacao parcial recuperada do t do coeficiente, e do R^2.
+       via_t1 = m$t1^2 / (m$t1^2 + m$gl),
+       via_t2 = m$t2^2 / (m$t2^2 + m$gl),
+       via_R2_1 = (m$R2 - rY2^2) / (1 - rY2^2),
+       via_R2_2 = (m$R2 - rY1^2) / (1 - rY1^2))
 }
 
 ## Os quatro diagnosticos que a tabela de pressupostos reporta. Cada um testa
@@ -133,15 +203,6 @@ diagnosticos <- function(modelo) {
        sw = shapiro.test(residuals(modelo)),
        reset = lmtest::resettest(modelo, power = 2, type = "regressor"))
 }
-
-## 03/09 -- conjunto de potencia, exercicio no quadro
-ctx_potencia <- function() {
-  d <- dados("rls_potencia.csv")
-  a <- rls(log2(d$X), log2(d$Y)); a$dados <- d
-  a$b1_ln <- coef(lm(log(d$Y) ~ log(d$X)))[[2]]
-  a
-}
-
 ## Objetos matriciais de um ajuste com dois regressores. Separado de `rlm2`
 ## porque a forma matricial e a apresentacao oficial do estimador desde
 ## 2026-09-01 (ADR 0014 desta disciplina), enquanto `rlm2` continua operando em
@@ -154,7 +215,7 @@ matricial <- function(m) {
             uvec = as.vector(y - X %*% (XtXinv %*% Xty))))
 }
 
-## 10/09, 14/09, 17/09 -- o exemplo ficticio do bloco de RLM.
+## 14/09, 17/09, 24/09 -- o exemplo ficticio do bloco de RLM.
 ##
 ## Os dados vem de um processo gerador conhecido: Y = 10 + 3L + 5K + u, com
 ## u ~ N(0, 10^2) e n = 20, gerado por code/gera_firmas_bloco.R com semente fixa.
@@ -167,35 +228,10 @@ ctx_firmas <- function() {
   matricial(m)
 }
 
-## 10/09 e 14/09 -- exercicio de fixacao
+## 14/09 e 17/09 -- exercicio de fixacao
 ctx_firmas_ex <- function() {
   f <- dados("firmas_exercicio.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f
   matricial(m)
-}
-
-## 10/09 -- exercicio de fixacao em notacao matricial. Quatro observacoes
-## desenhadas para que a conta feche a mao: X'X e X'y sao inteiros, os desvios
-## sao inteiros, o determinante em desvios e 100 e beta sai (10, 2, 3) exato.
-## Os residuos, (1, -1, -1, 1), sao ortogonais aos dois regressores por
-## construcao -- de modo que o ajuste nao e perfeito e a ANOVA tem o que somar.
-ctx_matricial <- function() {
-  d <- dados("obs_matricial.csv")
-  m <- rlm2(d$X1, d$X2, d$Y, r1 = "X_1", r2 = "X_2"); m$dados <- d
-  matricial(m)
-}
-
-## 17/09 -- exercicio de retornos de escala
-ctx_cobb <- function() {
-  d <- dados("cobb_douglas_rss.csv")
-  c(as.list(d), teste_F(d$rss_restrito, d$rss_irrestrito, d$q, d$n - d$k - 1))
-}
-
-## 17/09 -- exercicio tipo ENADE
-ctx_enade <- function() {
-  co <- dados("enade_q31.csv"); meta <- dados("enade_q31_meta.csv")
-  b <- setNames(co$coeficiente, co$termo)
-  list(b = b, n = meta$n, E = meta$escolaridade_avaliada,
-       efeito = b[["G"]] + b[["ExG"]] * meta$escolaridade_avaliada)
 }
 
 ## Curvas de uma forma funcional para varios valores de beta1. O argumento

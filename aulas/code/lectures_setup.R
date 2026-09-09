@@ -113,9 +113,20 @@ fig_salva <- function(nome, plot, largura = 6, altura = 3.2,
   motor <- match.arg(motor)
   if (motor == "pdf") {
     caminho <- fig(nome)
-    suppressMessages(
-      ggplot2::ggsave(caminho, plot, width = largura, height = altura,
-                      device = grDevices::cairo_pdf))
+    if (is.function(plot)) {
+      ## Grafico de base tambem no motor pdf. O `ggsave` recebe um objeto e o
+      ## imprime; uma FUNCAO de zero argumentos desenha por efeito colateral e
+      ## nao produz objeto, e o `ggsave` morre com "no applicable method for
+      ## 'grid.draw'". Verificado em 2026-09-02: o ramo `is.function` existia so
+      ## no motor tikz, e a assimetria nao estava registrada em lugar nenhum.
+      grDevices::cairo_pdf(caminho, width = largura, height = altura)
+      plot()
+      invisible(grDevices::dev.off())
+    } else {
+      suppressMessages(
+        ggplot2::ggsave(caminho, plot, width = largura, height = altura,
+                        device = grDevices::cairo_pdf))
+    }
     ## O motor pdf emite um link do Org, que so vira \includegraphics na
     ## exportacao -- longe daqui, e sem lugar onde encaixar o \altfig. Alt-text
     ## exige o motor tikz, que e o padrao desde o ADR Lectures 0011.

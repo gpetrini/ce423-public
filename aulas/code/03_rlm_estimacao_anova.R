@@ -83,6 +83,9 @@ ajuste <- sprintf("\\hat Y_i = %s %s L_i %s K_i",
 ## O processo gerador, para o frame que o revela.
 dgp <- sprintf("Y_i = %s + %s\\,L_i + %s\\,K_i + u_i, \\qquad u_i \\sim \\mathcal{N}(0, %s^2)",
                ni(m$dgp$b0), ni(m$dgp$b1), ni(m$dgp$b2), ni(m$dgp$sigma))
+## `:results output latex`, e nao raw: o resultado em cache de um bloco raw que
+## e um paragrafo solto nao tem delimitador, o Org nao consegue apaga-lo, e a
+## exportacao seguinte emite a frase DUAS vezes -- sem erro. Ver MISTAKES.md.
 cat(sprintf("Notem $S_{LK} = %s$: trabalho e capital \\alert{variam juntos}, com correlação $%s$.\n",
             nm(m$S12, 1), nm(m$r12, 2)))
 
@@ -484,7 +487,10 @@ tab(data.frame(
   check.names = FALSE),
     caption = "Tabela ANOVA a completar")
 
-source("code/bloco_setup.R"); q <- ctx_matricial()
+source("code/bloco_setup.R")
+dq <- dados("obs_matricial.csv")
+q <- matricial(rlm2(dq$X1, dq$X2, dq$Y, r1 = "X_1", r2 = "X_2"))
+q$dados <- dq
 tab_serie("$X_{1i}$" = q$x1, "$X_{2i}$" = q$x2, "$Y_i$" = q$y,
     caption = "Dados do exercício de notação matricial")
 
@@ -714,8 +720,10 @@ d <- m$dados
 a1 <- anova(lm(Y ~ L + K, data = d)); a2 <- anova(lm(Y ~ K + L, data = d))
 tab(data.frame(
   Linha = c("1ª", "2ª", "Res."),
-  `\\texttt{lm(Y \\textasciitilde{} L + K)}` = sprintf("$%s$: $%s$", rownames(a1), nm(a1$`Sum Sq`, 1)),
-  `\\texttt{lm(Y \\textasciitilde{} K + L)}` = sprintf("$%s$: $%s$", rownames(a2), nm(a2$`Sum Sq`, 1)),
+  ## Os rotulos sao nomes de termo do R, e vao em \texttt: em modo matematico
+  ## `Residuals` sai como produto de letras italicas, sem espacamento.
+  `\\texttt{lm(Y \\textasciitilde{} L + K)}` = sprintf("\\texttt{%s}: $%s$", rownames(a1), nm(a1$`Sum Sq`, 1)),
+  `\\texttt{lm(Y \\textasciitilde{} K + L)}` = sprintf("\\texttt{%s}: $%s$", rownames(a2), nm(a2$`Sum Sq`, 1)),
   check.names = FALSE),
     caption = "Somas de quadrados sob duas ordens de entrada",
     tamanho = "small")
@@ -743,13 +751,19 @@ eq(sprintf("F = %s = %s \\quad (\\text{valor-}p = %s), \\qquad R^2 = %s = %s.",
            frac(ni(e$ESS / e$k), ni(e$Se2)), ni(e$F), nm(e$pF, 3),
            frac(ni(e$ESS), ni(e$TSS)), nm(e$R2, 3)))
 
-source("code/bloco_setup.R"); q <- ctx_matricial()
+source("code/bloco_setup.R")
+dq <- dados("obs_matricial.csv")
+q <- matricial(rlm2(dq$X1, dq$X2, dq$Y, r1 = "X_1", r2 = "X_2"))
+q$dados <- dq
 eq(sprintf("\\mathbf{X}_{%s \\times %s} = %s, \\qquad \\mathbf{y}_{%s \\times 1} = %s.",
            ni(q$n), ni(q$k + 1), mat(q$X), ni(q$n), mat(q$vy)))
 eq(sprintf("\\mathbf{X}'\\mathbf{X} = %s, \\qquad \\mathbf{X}'\\mathbf{y} = %s.",
            mat(q$XtX), mat(q$Xty)))
 
-source("code/bloco_setup.R"); q <- ctx_matricial()
+source("code/bloco_setup.R")
+dq <- dados("obs_matricial.csv")
+q <- matricial(rlm2(dq$X1, dq$X2, dq$Y, r1 = "X_1", r2 = "X_2"))
+q$dados <- dq
 eq(sprintf("\\begin{cases} %s\\,\\hat\\beta_1 + %s\\,\\hat\\beta_2 = %s \\\\ %s\\,\\hat\\beta_1 + %s\\,\\hat\\beta_2 = %s \\end{cases} \\qquad \\det = %s",
            ni(q$S11), ni(q$S12), ni(q$S1y), ni(q$S12), ni(q$S22), ni(q$S2y), ni(q$det)))
 eq(sprintf("%s, \\qquad \\hat{\\mathbf{u}} = %s, \\qquad \\mathbf{X}'\\hat{\\mathbf{u}} = %s.",

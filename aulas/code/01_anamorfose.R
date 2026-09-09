@@ -1,31 +1,52 @@
-source("code/bloco_setup.R"); a <- ctx_curvatura(); k <- 6; f <- 3
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+k <- 6; f <- 3
 ## Cabeca e cauda da amostra: as primeiras sustentam a conta a mao e as ultimas
 ## mostram que a serie continua, o que a tabela truncada sozinha nao diz.
 recorte <- function(v) c(ni(v[1:k]), "$\\cdots$", ni(v[(a$n - f + 1):a$n]))
 tab_serie("$X_i$" = recorte(a$x), "$Y_i$" = recorte(a$y),
-          caption = sprintf("Base de dados sintética",
-                            ni(k), ni(f), ni(a$n)))
+          caption = sprintf("Base de dados sintética ($n = %s$)", ni(a$n)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 cat(sprintf("Denotando desvios por minúsculas ($x_i = X_i - \\bar X$), com $\\bar X = %s$ e $\\bar Y = %s$:\n", ni(a$mx), ni(a$my)))
 eq(sprintf("S_{XX} = \\sum x_i^2 = %s, \\qquad S_{XY} = \\sum x_i y_i = %s, \\qquad S_{YY} = \\sum y_i^2 = %s.",
            ni(a$Sxx), ni(a$Sxy), ni(a$Syy)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 eq(sprintf("\\hat\\beta_1 = %s = %s = %s, \\qquad \\hat\\beta_0 = \\bar Y - \\hat\\beta_1 \\bar X = %s - %s = %s.",
            frac("S_{XY}", "S_{XX}"), frac(ni(a$Sxy), ni(a$Sxx)), ni(a$b1),
            ni(a$my), ni(a$b1 * a$mx), ni(a$b0)))
 eq(cx(sprintf("\\hat Y_i = %s %s\\,X_i", ni(a$b0), ns(a$b1, 0))))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura(); k <- 6; f <- 3
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+k <- 6; f <- 3
 recorte <- function(v) c(ni(v[1:k]), "$\\cdots$", ni(v[(a$n - f + 1):a$n]))
 tab_serie("$X_i$" = recorte(a$x),
           "$\\hat Y_i$" = recorte(a$aj),
           "$\\hat u_i$" = recorte(a$u),
-          caption = sprintf("Valores ajustados e resíduos",
-                            ni(k), ni(f)))
+          caption = "Valores ajustados e resíduos")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura(); k <- 3
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+k <- 3
 ## As vinte parcelas nao cabem na largura do slide. Ficam as tres primeiras e a
 ## ultima, que bastam para exibir a forma da soma; o total e o da amostra
 ## inteira.
@@ -33,25 +54,42 @@ eq(sprintf("\\sum \\hat u_i^2 = %s + \\cdots + %s = %s.",
            paste(sprintf("(%s)^2", ni(a$u[1:k])), collapse = " + "),
            sprintf("(%s)^2", ni(a$u[a$n])), ni(a$RSS)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 eq(sprintf("%s \\qquad S_e \\approx %s.",
            cx(sprintf("S_e^2 = %s = %s \\approx %s",
                       frac("\\sum \\hat u_i^2", "n-2"), frac(ni(a$RSS), ni(a$gl)), nm(a$Se2, 2))),
            nm(a$Se, 2)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 eq(sprintf("S_{\\hat\\beta_1} = \\sqrt{%s} = \\sqrt{%s} = %s",
            frac("S_e^2", "S_{XX}"), frac(nm(a$Se2, 1), ni(a$Sxx)), nm(a$Sb1, 3)))
 cat(sprintf("\nCom $t_{0{,}025}(%s) = %s$:\n", ni(a$gl), nm(a$tc, 3)))
 eq(cx(sprintf("%s \\pm %s \\times %s = %s",
               nm(a$b1, 2), nm(a$tc, 3), nm(a$Sb1, 3), iv(a$ic1, 2))))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 cat(sprintf("No exemplo, $\\text{RSS} = %s$, e portanto\n", ni(a$RSS)))
 eq(sprintf("%s = %s + %s.", ni(a$TSS), ni(a$ESS), ni(a$RSS)))
 
-source("code/bloco_setup.R"); library(ggplot2); library(ggforce)
-a <- ctx_curvatura(); R2 <- a$R2
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+library(ggplot2); library(ggforce)
+R2 <- a$R2
 
 ## Dois circulos: o de Y tem raio 1. O raio do de X NAO pode ser arbitrario --
 ## a area da lente nunca excede a area do menor circulo, entao um rX fixo torna
@@ -106,8 +144,12 @@ p <- ggplot() +
 fig_salva("venn_anova.pdf", p, largura = 2.7, altura = 1.55,
           alt = "Dois círculos sobrepostos: o de Y e o de X. A lente escura é a ESS, a parte clara do círculo de Y é a RSS.")
 
-source("code/bloco_setup.R"); library(ggplot2)
-a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+library(ggplot2)
 ## Densidade F sob H0 com os graus de liberdade do proprio exemplo. Com um
 ## regressor o numerador tem 1 grau de liberdade, e por isso a curva e
 ## monotona decrescente em vez do corcovado que se ve nos livros -- desenhar o
@@ -138,7 +180,11 @@ p <- ggplot(d, aes(x, y)) +
 fig_salva("densidade_F_h0.pdf", p, largura = 2.7, altura = 1.55,
           alt = "Densidade da distribuição F sob a hipótese nula, com a região à direita do valor crítico sombreada.")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 tab(data.frame(
   Fonte = c("Regressão", "Resíduo", "Total"),
   `Soma de quadrados` = paste0("$", c(paste0("\\text{ESS} = ", ni(a$ESS)),
@@ -150,7 +196,11 @@ tab(data.frame(
   check.names = FALSE),
   caption = "Tabela ANOVA do exemplo")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 fc <- qf(1 - a$alpha, 1, a$gl)
 ## A decisao e derivada da comparacao, nunca escrita a mao: se os dados forem
 ## reestimados e o F mudar de lado, a frase muda junto em vez de mentir.
@@ -161,19 +211,31 @@ eq(sprintf("F = %s = %s \\qquad\\text{contra}\\qquad F_{%s}(1, %s) = %s",
 cat(sprintf("\nAo nível de significância de $%s\\%%$, %s $H_0$.\n",
             nm(100 * a$alpha, 0), decisao))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 eq(sprintf("t(\\hat\\beta_1)^2 = \\left(%s\\right)^2 = %s \\qquad\\text{e}\\qquad F = %s = %s = %s.",
            frac(ni(a$b1), nm(a$Sb1, 3)), nm(a$t1^2, 2),
            frac("\\text{ESS}/1", "\\text{RSS}/(n-2)"),
            frac(ni(a$ESS), nm(a$Se2, 2)), nm(a$F, 2)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 eq(sprintf("%s \\qquad\\text{aqui}\\qquad R^2 = %s = %s.",
            cx(sprintf("R^2 = %s = 1 - %s", frac("\\text{ESS}", "\\text{TSS}"),
                       frac("\\text{RSS}", "\\text{TSS}"))),
            frac(ni(a$ESS), ni(a$TSS)), nm(a$R2, 3)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 ## A amostra inteira, em pe, dobrada em dois blocos lado a lado: vinte linhas
 ## empilhadas nao cabem na altura do frame, e truncar esconderia justamente a
 ## troca de sinal nas pontas, que e o ponto do slide.
@@ -185,12 +247,20 @@ tab(data.frame(
   caption = "Resíduos ao longo de $X$",
   tamanho = "scriptsize")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 eq(cx(sprintf("R^2 = %s = %s = %s", frac("\\text{ESS}", "\\text{TSS}"),
               frac(ni(a$ESS), ni(a$TSS)), nm(a$R2, 3))))
 
-source("code/bloco_setup.R"); library(ggplot2)
-a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+library(ggplot2)
 
 ## Os dois paineis saem da MESMA amostra: a esquerda o ajuste linear, que erra a
 ## forma; a direita o ajuste quadratico, que e a forma do processo gerador. A
@@ -243,8 +313,12 @@ p <- ggplot(df, aes(x, u)) +
 fig_salva("tres_padroes_residuos.pdf", p, largura = 2.7, altura = 2.10,
           alt = "Três painéis de resíduos: padrão em U, leque abrindo e sinais iguais em sequência.")
 
-source("code/bloco_setup.R"); library(ggplot2)
-a <- ctx_curvatura(); d <- a$dados
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+library(ggplot2)
 ## Os niveis do fator sao declarados: o facet_wrap ordena alfabeticamente, e
 ## "Alternativa" vinha antes de "Na escala original", pondo o painel
 ## transformado a esquerda -- o inverso da ordem em que o texto os apresenta.
@@ -336,7 +410,11 @@ p <- ggplot(d, aes(x, y)) +
 fig_salva("forma_reciproco.pdf", p, largura = 4.8, altura = 1.25,
           alt = "Curvas recíprocas aproximando-se de uma assíntota horizontal tracejada, por cima e por baixo.")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura(); d <- a$dados
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 b <- coef(a$quad); xs <- -b[2] / (2 * b[3])
 eq(cx(sprintf("\\frac{\\partial \\hat Y}{\\partial X} = %s %s\\,X",
               nm(b[2], 2), ns(2 * b[3], 2))))
@@ -352,15 +430,25 @@ cat(sprintf("\nO ponto crítico cai em $X^{*} = %s$, %s da faixa observada $[%s,
 cat(sprintf("\nO $R^2$ passa de %s, no ajuste linear, para %s, e o padrão em $U$ dos resíduos desaparece.\n",
             nm(a$R2, 3), nm(summary(a$quad)$r.squared, 3)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura(); g <- a$dgp; b <- coef(a$quad)
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+g <- a$dgp; b <- coef(a$quad)
 eq(sprintf("Y_i = %s + %s\\,X_i^2 + u_i, \\quad u_i \\sim \\mathcal{N}(0, %s^2) \\qquad \\text{(processo gerador)}",
            ni(g$b0), ni(g$b2), ni(g$sigma)))
 cat("\nA estimação da forma quadrática sobre os vinte pontos recupera esses valores dentro do erro amostral:\n")
 eq(sprintf("\\hat Y_i = %s %s\\,X_i %s\\,X_i^2, \\quad R^2 = %s \\qquad \\text{(forma estimada)}",
            nm(b[1], 1), ns(b[2], 2), ns(b[3], 2), nm(summary(a$quad)$r.squared, 3)))
 
-source("code/bloco_setup.R"); library(ggplot2)
-a <- ctx_curvatura(); d <- a$dados; g <- a$dgp
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+library(ggplot2)
+g <- a$dgp
 grade <- data.frame(X = seq(min(d$X), max(d$X), length.out = 200))
 grade$dgp <- g$b0 + g$b2 * grade$X^2
 grade$lin <- a$b0 + a$b1 * grade$X
@@ -466,7 +554,11 @@ p <- ggplot(d, aes(X, Y)) +
 fig_salva("exercicio_potencia.pdf", p, largura = 2.9, altura = 1.9,
           alt = "Cinco pontos numa curva de potência crescente, cada um rotulado com seu par ordenado.")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 itens <- c(
   sprintf("No ajuste linear do exemplo desta aula, o $R^2$ de $%s$ indica que a forma funcional escolhida é adequada.",
           nm(a$R2, 3)),
@@ -478,7 +570,10 @@ cat("\\begin{enumerate}\n")
 cat(sprintf("  \\item[(%d)] %s\n", seq_along(itens) - 1, itens), sep = "")
 cat("\\end{enumerate}\n")
 
-source("code/bloco_setup.R"); e <- ctx_potencia()
+source("code/bloco_setup.R")
+dp <- dados("rls_potencia.csv")
+e <- rls(log2(dp$X), log2(dp$Y)); e$dados <- dp
+e$b1_ln <- coef(lm(log(dp$Y) ~ log(dp$X)))[[2]]
 cat(sprintf("Na escala $\\log_2$: $\\log_2 X = %s$ e $\\log_2 Y = %s$.\n",
             paste(ni(e$x), collapse = ", "), paste(ni(e$y), collapse = ", ")))
 eq(sprintf("S_{XX} = %s, \\quad S_{XY} = %s, \\qquad %s",
@@ -487,7 +582,11 @@ eq(sprintf("S_{XX} = %s, \\quad S_{XY} = %s, \\qquad %s",
 cat(sprintf("\nElasticidade igual a %s: quando o insumo dobra, a produção multiplica por %s.\n",
             ni(e$b1), ni(2^e$b1)))
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 tab(data.frame(
   Item = sprintf("(%d)", 0:4),
   Resposta = c("F", "V", "F", "F", "V"),
@@ -500,7 +599,12 @@ tab(data.frame(
   check.names = FALSE),
   caption = "Gabarito do Exercício 2")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura(); g <- a$diag
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
+g <- a$diag
 marca <- function(p, limite = 0.05) if (p < limite) "\\tikzxmark" else "\\checkmark"
 tab(data.frame(
   ` ` = c(marca(g$reset$p.value), marca(g$bp$p.value),
@@ -513,7 +617,11 @@ tab(data.frame(
   check.names = FALSE),
   caption = "Diagnóstico do ajuste linear", tamanho = "small")
 
-source("code/bloco_setup.R"); a <- ctx_curvatura()
+source("code/bloco_setup.R")
+d <- dados("rls_curvatura.csv"); a <- rls(d$X, d$Y); a$dados <- d
+a$dgp <- list(b0 = 20, b1 = 0, b2 = 1, sigma = 8)
+a$quad <- lm(Y ~ X + I(X^2), data = d)
+a$diag <- diagnosticos(lm(Y ~ X, data = d))
 m <- lm(Y ~ X, data = a$dados)
 ## RESET rejeita: a curvatura omitida entra como potencia do ajustado.
 ## Durbin-Watson rejeita, e nao por dependencia temporal -- as observacoes estao
