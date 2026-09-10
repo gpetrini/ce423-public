@@ -285,6 +285,37 @@ tab(data.frame(
   `Decisão a 5\\%` = c("não se rejeita", "rejeita-se"),
   check.names = FALSE),
     caption = "Testes de nulidade dos dois coeficientes", tamanho = "scriptsize")
+library(ggplot2)
+# tidypvals nao esta no CRAN. Instalacao, uma unica vez:
+#   remotes::install_github("jtleek/tidypvals")
+# A linha fica comentada de proposito (Lectures/CLAUDE.md 5.27).
+library(tidypvals)
+# 49.297 p-valores extraidos de AER, JPE e QJE por Brodeur et al. (2016).
+#
+# O recorte e do DOMINIO, e nao do eixo vertical (CLAUDE.md 5.20): abaixo de
+# 0,01 a frequencia e uma ordem de grandeza maior e comprimiria o resto da
+# figura. O texto do slide declara o recorte.
+faixa <- c(0.01, 0.15)
+pv <- subset(tidypvals::brodeur2016, pvalue >= faixa[1] & pvalue <= faixa[2])
+larg <- 0.005
+p <- ggplot(pv, aes(pvalue)) +
+  geom_histogram(binwidth = larg, boundary = 0, fill = "grey55",
+                 colour = "white", linewidth = 0.2) +
+  geom_vline(xintercept = 0.05, colour = "firebrick", linetype = "22",
+             linewidth = 0.5) +
+  annotate("text", x = 0.05, y = Inf, colour = "firebrick", size = 2.6,
+           hjust = -0.12, vjust = 1.8, label = "$\\alpha = 0{,}05$") +
+  labs(x = "$p$-valor", y = "Estimativas publicadas") +
+  expand_limits(y = 0) +
+  theme_minimal(base_size = 9) +
+  theme(panel.grid.minor = element_blank())
+fig_salva("rls_inf_pvalores_publicados.pdf", p, largura = 5.0, altura = 1.6,
+          alt = "Histograma dos p-valores publicados em tres revistas de economia, no intervalo de 0,01 a 0,15: a frequencia cai de forma regular, exceto pela barra imediatamente a esquerda de 0,05, mais alta que as duas vizinhas.")
+# As tres contagens saem do MESMO objeto que a figura desenha (CLAUDE.md 5.30).
+conta <- function(lo) sum(pv$pvalue >= lo & pv$pvalue < lo + larg)
+cat(sprintf(paste("\nRecorte de $0{,}01$ a $0{,}15$, porque os \\(p\\)-valores muito pequenos são numerosos e comprimiriam o restante da figura.",
+                  "A barra imediatamente à esquerda de $0{,}05$ reúne %s estimativas, contra %s na faixa anterior e %s na seguinte.\n"),
+            ni(conta(0.045)), ni(conta(0.040)), ni(conta(0.050))))
 cat(sprintf("Suponha que a literatura sugira retorno de \\textrm{R\\$}\\,%s por hora a cada ano de estudo. Os dados são compatíveis com isso, ou indicam retorno maior?\n",
             nm(a$c_econ, 2)))
 te <- a$econ
@@ -323,6 +354,47 @@ te <- a$econ
 cat(sprintf("A mesma estatística, $t = %s$, ultrapassa o valor crítico unilateral $%s$ e não alcança o bilateral $%s$. A região de rejeição é que muda, e não os dados.\n",
             nm(te$t, 3), nm(te$tc_uni, 3), nm(te$tc_bi, 3)))
 eq(sprintf("t(\\hat\\beta_1)^2 = %s^2 = %s = F.", nm(a$t1, 3), nm(a$F, 2)))
+library(ggplot2)
+# A distribuicao amostral de beta_1 chapeu, no eixo do PROPRIO coeficiente:
+# uma t com n-2 gl, centrada em beta_1 chapeu e escalada por S. A area
+# sombreada vale 1 - alpha, e as suas extremidades, lidas no eixo horizontal,
+# sao os limites do intervalo -- e essa projecao que a inversao da desigualdade
+# produz algebricamente em seguida.
+meia <- 0.85 * diff(a$ic1)
+bb <- seq(a$ic1[1] - meia, a$ic1[2] + meia, length.out = 400)
+dens <- function(v) dt((v - a$b1) / a$Sb1, a$gl) / a$Sb1
+g <- data.frame(b = bb, f = dens(bb))
+dentro <- subset(g, b >= a$ic1[1] & b <= a$ic1[2])
+esq <- subset(g, b <= a$ic1[1])
+dir <- subset(g, b >= a$ic1[2])
+alto <- max(g$f)
+p <- ggplot(g, aes(b, f)) +
+  geom_area(data = esq, fill = "firebrick", alpha = 0.30) +
+  geom_area(data = dir, fill = "firebrick", alpha = 0.30) +
+  geom_area(data = dentro, fill = "steelblue3", alpha = 0.35) +
+  geom_line(colour = "grey10", linewidth = 0.7) +
+  geom_segment(data = data.frame(b = a$ic1),
+               aes(x = b, xend = b, y = 0, yend = dens(b)),
+               colour = "grey20", linetype = "22", linewidth = 0.4,
+               inherit.aes = FALSE) +
+  annotate("text", x = a$b1, y = 0.42 * alto, size = 2.8,
+           label = sprintf("$1 - \\alpha = %s$", nm(1 - a$alpha, 2))) +
+  annotate("text", x = a$ic1[1], y = 0.28 * alto, colour = "firebrick",
+           size = 2.6, hjust = 1.15, label = "$\\alpha/2$") +
+  annotate("text", x = a$ic1[2], y = 0.28 * alto, colour = "firebrick",
+           size = 2.6, hjust = -0.15, label = "$\\alpha/2$") +
+  scale_x_continuous(breaks = c(a$ic1[1], a$b1, a$ic1[2]),
+                     labels = c(sprintf("$%s$", nm(a$ic1[1], 3)),
+                                "$\\hat\\beta_1$",
+                                sprintf("$%s$", nm(a$ic1[2], 3)))) +
+  labs(x = "Valores de $\\beta_1$", y = NULL) +
+  expand_limits(y = 0) +
+  theme_minimal(base_size = 9) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.text.y = element_blank())
+fig_salva("rls_inf_inversao.pdf", p, largura = 5.0, altura = 1.7,
+          alt = "Densidade t centrada na estimativa do coeficiente angular, com a regiao central sombreada em azul, de area um menos alfa, e as duas caudas em vermelho, de area alfa sobre dois cada; as fronteiras entre as regioes, lidas no eixo horizontal, sao os limites do intervalo de confianca.")
 cat(sprintf("\\correctwrong{Correto}{``Em amostras repetidas, %s\\%% dos intervalos construídos deste modo contêm $\\beta_1$.''}{Errado}{``Há %s\\%% de probabilidade de $\\beta_1$ estar entre %s e %s.''}\n",
             ni(100 * (1 - a$alpha)), ni(100 * (1 - a$alpha)),
             nm(a$ic1[1], 3), nm(a$ic1[2], 3)))
@@ -398,14 +470,14 @@ cf <- as.data.frame(predict(mod, grade, interval = "confidence"))
 pv <- as.data.frame(predict(mod, grade, interval = "prediction"))
 # Niveis declarados, como manda o CLAUDE.md 5.14, mesmo com a ordem alfabetica
 # coincidindo com a desejada.
-rot <- c("banda da m\\'edia, $S_{\\hat Y_0}$", "banda de previs\\~ao, $S_{\\text{prev}}$")
+rot <- c("intervalo da m\\'edia, $S_{\\hat Y_0}$", "intervalo de previs\\~ao, $S_{\\text{prev}}$")
 faixas <- rbind(
   data.frame(educ = grade$educ, lo = cf$lwr, hi = cf$upr, tipo = rot[1]),
   data.frame(educ = grade$educ, lo = pv$lwr, hi = pv$upr, tipo = rot[2]))
 faixas$tipo <- factor(faixas$tipo, levels = rot)
-# A banda da media e area preenchida; a de previsao segue em pontilhado, so
-# com as duas bordas. A legenda passa a nomear apenas a de previsao, porque a
-# area dispensa chave: ela e a unica regiao colorida da figura.
+# O intervalo da media e area preenchida; o de previsao segue em pontilhado,
+# so com as duas bordas. A legenda passa a nomear apenas o de previsao, porque
+# a area dispensa chave: ela e a unica regiao colorida da figura.
 prev <- subset(faixas, tipo == rot[2])
 media <- subset(faixas, tipo == rot[1])
 p <- ggplot() +
@@ -440,9 +512,9 @@ p <- ggplot() +
         legend.text = element_text(size = 7),
         panel.grid.minor = element_blank())
 fig_salva("rls_inf_bandas.pdf", p, largura = 5.2, altura = 1.9,
-          alt = "Curva ajustada com a banda da media condicional preenchida em azul e a banda de previsao, mais larga, em linhas pontilhadas; uma linha vermelha marca o X0 comentado no texto, e ambas as bandas sao mais estreitas na media da escolaridade.")
+          alt = "Curva ajustada com o intervalo da media condicional preenchido em azul e o intervalo de previsao, mais largo, em linhas pontilhadas; uma linha vermelha marca o X0 comentado no texto, e ambos sao mais estreitos na media da escolaridade.")
 pv <- a$prev
-cat(sprintf("Em $X_0 = %s$ anos de estudo, $\\hat Y_0 = %s$. A média fica em %s e o valor individual, em %s.\n",
+cat(sprintf("Em $X_0 = %s$ anos de estudo, a previsão pontual é $\\hat Y_0 = %s$. O intervalo da média fica em %s e o de previsão, em %s.\n",
             ni(a$x0), nm(pv$aj, 2), iv(pv$ic_med, 2), iv(pv$ic_prev, 2)))
 library(ggplot2)
 # Figura SIMULADA, a contraparte concreta da anterior: cada painel e uma amostra
@@ -450,7 +522,7 @@ library(ggplot2)
 # outros reamostram educ COM REPOSICAO, para preservar a dispersao de X, e
 # sorteiam o erro do mesmo processo gerador.
 #
-# As bandas tremem entre paineis, porque cada uma vem de um ajuste diferente.
+# Os intervalos tremem entre paineis, porque cada um vem de um ajuste diferente.
 # E fiel ao que aconteceria, e mistura o efeito de n com o do sorteio -- que e
 # justamente o que a figura anterior isola.
 set.seed(20260908)
@@ -493,7 +565,7 @@ p <- ggplot(faixa, aes(x)) +
   theme_minimal(base_size = 8) +
   theme(panel.grid.minor = element_blank())
 fig_salva("rls_inf_bandas_sim.pdf", p, largura = 5.2, altura = 1.5,
-          alt = "Tres amostras de tamanhos crescentes, cada uma com seu proprio ajuste: a banda da media condicional encolhe de painel para painel, e a banda de previsao acompanha a dispersao dos pontos e nao estreita.")
+          alt = "Tres amostras de tamanhos crescentes, cada uma com seu proprio ajuste: o intervalo da media condicional encolhe de painel para painel, e o de previsao acompanha a dispersao dos pontos e nao estreita.")
 library(ggplot2)
 # O LEQUE: oitenta das 2000 amostras ja sorteadas no setup, cada uma com a sua
 # curva ajustada, sobre um dominio estendido para alem do observado.
@@ -571,7 +643,7 @@ p <- ggplot() +
   theme_minimal(base_size = 9) +
   theme(panel.grid.minor = element_blank())
 fig_salva("rls_inf_wage1_banda.pdf", p, largura = 5.0, altura = 1.6,
-          alt = "Dispersao do logaritmo do salario contra anos de estudo em wage1, com a curva ajustada e uma banda de confianca estreita.")
+          alt = "Dispersao do logaritmo do salario contra anos de estudo em wage1, com a curva ajustada e um intervalo de confianca estreito.")
 tab_serie("$X_i$" = e$x, "$Y_i$" = e$y,
           caption = "Dados do exercício", tamanho = "small")
 cat(sprintf("\n\\begin{center}\\small $n = %s$, $\\bar X = %s$, $\\bar Y = %s$,\n$S_{XX} = %s$, $S_{XY} = %s$, $S_{YY} = %s$.\\end{center}\n",
@@ -641,6 +713,6 @@ eq(sprintf("\\hat Y_0 = %s + %s \\times %s = %s, \\qquad \\frac{1}{%s} + \\frac{
            nm(1 / e$n + (e$x0 - e$mx)^2 / e$Sxx, 2)))
 eq(sprintf("%s: %s, \\qquad %s: %s.",
            "IC_{95\\%}(\\text{m\\'edia})", iv(pv$ic_med, 3),
-           "IC_{95\\%}(\\text{individual})", iv(pv$ic_prev, 3)))
+           "IC_{95\\%}(\\text{previs\\~ao})", iv(pv$ic_prev, 3)))
 cat(sprintf("\nO segundo é mais largo porque acrescenta $S_e^2$, a variância do erro da própria observação. Note ainda que $X_0 = %s$ está fora do domínio amostral, que termina em $%s$.\n",
             ni(e$x0), ni(max(e$x))))
