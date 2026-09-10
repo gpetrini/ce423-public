@@ -10,7 +10,7 @@ cat(sprintf("\nTambém: $\\text{ESS} = %s$, $\\text{TSS} = %s$, $R^2 = %s$ e $F 
             nm(m$ESS, 1), nm(m$TSS, 1), nm(m$R2, 3), nm(m$F, 1)))
 
 source("code/bloco_setup.R"); m <- ctx_firmas()
-cat(sprintf("Com $r_{LK} = %s$, o fator $1/(1-%s) = %s$: a variância é cerca de %s vezes a que seria com regressores não correlacionados.\n",
+cat(sprintf("Com $r_{LK} = %s$, o fator $1/(1-%s) = %s$: a variância é cerca de $%s$ vezes a que seria com regressores não correlacionados.\n",
             nm(m$r12, 1), nm(m$r12^2, 2), nm(1 / (1 - m$r12^2), 2),
             nm(1 / (1 - m$r12^2), 1)))
 
