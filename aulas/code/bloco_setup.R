@@ -215,16 +215,42 @@ matricial <- function(m) {
             uvec = as.vector(y - X %*% (XtXinv %*% Xty))))
 }
 
-## 14/09, 17/09, 24/09 -- o exemplo ficticio do bloco de RLM.
+## O exemplo condutor das quatro aulas de RLM: a industria de metais primarios
+## (SIC 33) em 27 estados dos Estados Unidos, com valor adicionado Y, insumo de
+## trabalho L e estoque de capital K. A base e REAL -- Greene (2003),
+## "Econometric Analysis", 5a ed., Tabela F6.1, distribuida no pacote AER --, e
+## e estimada em logaritmos,
+##   log Y = beta_0 + beta_1 log L + beta_2 log K + u,
+## que e a forma de potencia da aula de anamorfose. O CSV guarda L, K e Y em
+## NIVEL; o contexto toma os logaritmos. Gerada pelo bloco `gera-metais` deste
+## arquivo (code/gera_metais_bloco.R).
 ##
-## Os dados vem de um processo gerador conhecido: Y = 10 + 3L + 5K + u, com
-## u ~ N(0, 10^2) e n = 20, gerado por code/gera_firmas_bloco.R com semente fixa.
+## NAO ha campo `dgp`, e a ausencia e o ponto: a base e real, nao existe
+## parametro verdadeiro com que confrontar beta_hat, e nada ha a revelar ao fim
+## da aula a respeito do processo gerador. O que a aula de estimacao revela e o
+## NOME da forma estimada -- uma Cobb-Douglas. A comparacao entre beta_hat e um
+## beta conhecido vive no deck de testes de hipoteses, em simulacao declarada.
+ctx_metais <- function() {
+  f <- dados("metais_bloco.csv")
+  m <- rlm2(log(f$L), log(f$K), log(f$Y), r1 = "\\log L", r2 = "\\log K")
+  m$dados <- f
+  matricial(m)
+}
+
+## O exemplo ficticio das quatro aulas de RLM: vinte firmas com uma funcao de
+## producao Cobb-Douglas, Y = A L^b1 K^b2 e^u, estimada em logaritmos,
+## log Y = log A + b1 log L + b2 log K + u, com u ~ N(0, sigma^2) e n = 20.
+## O CSV guarda L, K e Y em NIVEL; o contexto toma os logaritmos, que e o que a
+## aula de anamorfose ensinou a fazer. Gerado pelo bloco `gera-firmas` deste
+## arquivo (code/gera_firmas_bloco.R), com semente fixa e criterios declarados.
 ## O exemplo NAO e deterministico (ADR 0013): beta_hat difere de beta, e a
 ## comparacao entre os dois fecha a aula de estimacao. Os parametros do DGP
 ## ficam no proprio contexto porque o slide de revelacao os exibe.
 ctx_firmas <- function() {
-  f <- dados("firmas_bloco.csv"); m <- rlm2(f$L, f$K, f$Y); m$dados <- f
-  m$dgp <- list(b0 = 10, b1 = 3, b2 = 5, sigma = 10)
+  f <- dados("firmas_bloco.csv")
+  m <- rlm2(log(f$L), log(f$K), log(f$Y), r1 = "\\log L", r2 = "\\log K")
+  m$dados <- f
+  m$dgp <- list(logA = 1.5, b1 = 0.7, b2 = 0.3, sigma = 0.35)
   matricial(m)
 }
 
