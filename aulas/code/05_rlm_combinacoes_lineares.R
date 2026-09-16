@@ -41,17 +41,16 @@ tab(data.frame(
                                 sprintf("F = %s", nm(m$F, 1))), "$"),
   `Decisão` = sapply(c(m$p1, m$p2, m$pF), dec), check.names = FALSE),
     caption = "Estimativas e $p$-valores do exemplo")
-cat(sprintf("Para o modelo das firmas, com $S_e^2 = %s$ e $\\det = %s$:\n", nm(m$Se2, 4), nm(m$det, 1)))
-## Sem a substituicao numerica intermediaria: com o exemplo em n = 20 ela tem
-## cinco digitos em cada fracao e a linha transborda 48 pt. Os tres valores que
-## entram na conta estao na tabela de somas do frame anterior.
-eq(sprintf("\\Var(\\hat\\beta_1) = %s = %s, \\qquad \\Cov(\\hat\\beta_1,\\hat\\beta_2) = -%s = %s.",
-           frac("S_e^2 S_{KK}", "\\det"), nm(m$V[1,1], 3),
-           frac("S_e^2 S_{LK}", "\\det"), nm(m$cov12, 3)))
-tab(data.frame(` ` = c("$\\hat\\beta_1$", "$\\hat\\beta_2$"),
-               `$\\hat\\beta_1$` = paste0("$", nm(m$V[, 1], 3), "$"),
-               `$\\hat\\beta_2$` = paste0("$", nm(m$V[, 2], 3), "$"), check.names = FALSE),
-    caption = "Matriz de covariância dos estimadores", tamanho = "small")
+cat(sprintf("Para o modelo das firmas, com $S_e^2 = %s$, a matriz de covariância estimada é $S_e^2(\\mathbf{X}^\\top\\mathbf{X})^{-1}$, como na aula passada:\n", nm(m$Se2, 4)))
+## Em forma matricial, e nao em somatorios: a variancia de cada estimador e a
+## entrada da diagonal na posicao dele, e a covariancia e a entrada fora da
+## diagonal que cruza os dois (ADR 0014). A primeira linha e a primeira coluna
+## sao do intercepto, que a aula nao usa.
+## Duas equacoes, e nao uma: matriz e leitura na mesma linha transbordam 98 pt.
+eq(sprintf("S_e^2(\\mathbf{X}^\\top\\mathbf{X})^{-1} = %s",
+           mat(m$Se2 * m$XtXinv, fmt = function(z) nm(z, 3))))
+eq(sprintf("\\Var(\\hat\\beta_1) = %s, \\qquad \\Cov(\\hat\\beta_1,\\hat\\beta_2) = %s.",
+           nm(m$V[1,1], 3), nm(m$cov12, 3)))
 cs <- combinacao(m, c(1, 1)); cd <- combinacao(m, c(1, -1))
 eqs(sprintf("\\Var(\\hat\\beta_1 + \\hat\\beta_2) &= %s + %s + 2(%s) = %s & S_{\\hat\\theta} &= %s",
             nm(m$V[1,1], 3), nm(m$V[2,2], 3), nm(m$cov12, 3), nm(cs$var, 3), nm(cs$S, 3)),

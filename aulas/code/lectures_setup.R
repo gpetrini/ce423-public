@@ -3,10 +3,16 @@
 ## O sub() final elimina o zero negativo. Uma quantidade que arredonda para zero
 ## por baixo sai do formatC como "-0" ou "-0{,}00", e o sinal ali afirma algo que
 ## o numero nao diz: sugere quantidade negativa onde ha apenas arredondamento.
+## O separador decimal e a virgula, "{,}", por omissao. Um deck que prefira o
+## ponto declara `options(lectures_decimal = ".")` no seu <<setup>> (decisao
+## do professor em 2026-09-15, para RLM: Teste de Hipoteses); a opcao vale
+## para todos os formatadores, e os numeros escritos a mao no .org precisam
+## seguir a mesma escolha.
 nm <- function(x, d = 2) {
+  sep <- getOption("lectures_decimal", "{,}")
   s <- formatC(x, format = "f", digits = d, big.mark = "")
-  s <- sub("\\.", "{,}", s)
-  sub("^-(0(\\{,\\}0*)?)$", "\\1", s)
+  s <- sub("\\.", sep, s, fixed = FALSE)
+  sub(paste0("^-(0(", gsub("([{}.])", "\\\\\\1", sep), "0*)?)$"), "\\1", s)
 }
 
 ## Inteiro. O "+ 0" converte o zero negativo do IEEE em zero positivo.
@@ -206,7 +212,20 @@ encolhe <- function(x, tamanho) {
   sub("\\begin{table}", sprintf("\\begin{table}\n\\%s", tamanho), x, fixed = TRUE)
 }
 
+## Coluna numerica sai alinhada a DIREITA por omissao (decisao do professor,
+## 2026-09-15; Lectures/CLAUDE.md 5.9): com o mesmo numero de casas em toda a
+## coluna, o separador decimal fica alinhado e um sinal negativo nao desloca
+## os algarismos, o que a coluna alinhada a esquerda fazia. Uma coluna e
+## numerica quando todas as celulas nao vazias sao um numero, com ou sem
+## cifroes, sinal, "<" ou ">" (o p-valor "< 0{,}001") e estrelas.
+coluna_numerica <- function(x) {
+  x <- trimws(as.character(x)); x <- x[nzchar(x)]
+  length(x) > 0 &&
+    all(grepl("^\\$?\\s*[<>]?\\s*-?[0-9]+([{,}.]+[0-9]+)?(\\^\\{\\*+\\})?\\s*\\$?$", x))
+}
+
 tab <- function(df, caption = NULL, align = NULL, tamanho = NULL) {
+  if (is.null(align)) align <- ifelse(vapply(df, coluna_numerica, logical(1)), "r", "l")
   cat(encolhe(knitr::kable(df, format = "latex", booktabs = TRUE, escape = FALSE,
                            caption = caption, align = align, linesep = "",
                            row.names = FALSE),

@@ -119,6 +119,38 @@ rlm2 <- function(x1, x2, y, alpha = 0.05, r1 = "L", r2 = "K") {
        gamma1 = S12 / S22)
 }
 
+## Regressao linear multipla com k regressores, em forma matricial. `X` e a
+## matriz de regressores SEM a coluna de uns, que e acrescentada aqui; `rot`
+## sao os rotulos LaTeX das colunas, na ordem. Todo vetor devolvido tem k + 1
+## posicoes, com o intercepto na primeira -- a ordem de (X'X)^{-1}.
+## `rlm2` continua servindo aos decks que operam em somatorios com dois
+## regressores; com k = 2 as duas funcoes produzem o mesmo numero.
+rlmk <- function(X, y, alpha = 0.05, rot = colnames(X)) {
+  X <- as.matrix(X); n <- length(y); k <- ncol(X)
+  Xc <- cbind(1, X); XtX <- t(Xc) %*% Xc; Xty <- t(Xc) %*% y
+  XtXinv <- solve(XtX); b <- as.vector(XtXinv %*% Xty)
+  aj <- as.vector(Xc %*% b); u <- y - aj
+  RSS <- sum(u^2); TSS <- sum((y - mean(y))^2); ESS <- TSS - RSS
+  gl <- n - k - 1; Se2 <- RSS / gl
+  V <- Se2 * XtXinv; Sb <- sqrt(diag(V)); t <- b / Sb
+  tc <- qt(1 - alpha / 2, gl)
+  ## R^2 da regressao auxiliar de cada regressor contra os demais: e o que
+  ## infla a variancia, Var(b_j) = sigma^2 / (S_jj (1 - R_j^2)).
+  Rj2 <- if (k == 1) 0 else
+    sapply(seq_len(k), function(j) summary(lm(X[, j] ~ X[, -j]))$r.squared)
+  Sjj <- colSums((X - rep(colMeans(X), each = n))^2)
+  list(n = n, k = k, gl = gl, rot = rot, X = Xc, vy = y, y = y,
+       XtX = XtX, Xty = Xty, XtXinv = XtXinv,
+       b = b, aj = aj, u = u, RSS = RSS, TSS = TSS, ESS = ESS,
+       Se2 = Se2, Se = sqrt(Se2), R2 = ESS / TSS,
+       R2aj = 1 - (RSS / gl) / (TSS / (n - 1)),
+       V = V, Sb = Sb, t = t, p = 2 * pt(abs(t), gl, lower.tail = FALSE),
+       tc = tc, alpha = alpha, ic = cbind(b - tc * Sb, b + tc * Sb),
+       F = (ESS / k) / Se2, Fc = qf(1 - alpha, k, gl),
+       pF = pf((ESS / k) / Se2, k, gl, lower.tail = FALSE),
+       Rj2 = Rj2, Sjj = Sjj, cor = cor(X))
+}
+
 ## Teste t de lambda1*b1 + lambda2*b2 = c, e o F equivalente por RSS.
 combinacao <- function(a, lambda, c0 = 0) {
   theta <- sum(lambda * c(a$b1, a$b2))
