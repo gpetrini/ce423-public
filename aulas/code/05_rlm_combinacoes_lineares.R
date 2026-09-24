@@ -17,238 +17,196 @@ if (!file.exists("code/bloco_setup.R")) {
          "que e a que contem 'code/' e 'data/'. Diretorio atual: ", getwd())
   }
 }
-source("code/bloco_setup.R"); m <- ctx_firmas(); d <- m$dados
-library(car)
 source("code/bloco_setup.R")
-library(wooldridge); data("wage1"); library(car)
+library(car); library(wooldridge); library(ggplot2)
+m <- ctx_metais(); d <- m$dados
+cs <- combinacao(m, c(1, 1), 1); cd <- combinacao(m, c(1, -1))
+mu <- lm(log(Y) ~ log(L) + log(K), data = d)
+fr <- lm(log(Y) ~ I(log(L) + log(K)), data = d); RSSr_d <- sum(resid(fr)^2)
+fi <- lm(log(Y / L) ~ log(K / L), data = d);     RSSr_s <- sum(resid(fi)^2)
+si <- summary(fi)$coefficients
+dec <- function(p) if (p < m$alpha) "rejeita" else "não rejeita"
+data("wage1")
 modelo <- lm(log(wage) ~ educ + exper + tenure, data = wage1)
-source("code/bloco_setup.R")
+b <- coef(modelo); V <- vcov(modelo); gl <- df.residual(modelo)
 dcb <- dados("cobb_douglas_rss.csv")
 cb <- c(as.list(dcb), teste_F(dcb$rss_restrito, dcb$rss_irrestrito, dcb$q,
                               dcb$n - dcb$k - 1))
-source("code/bloco_setup.R")
-co <- dados("enade_q31.csv"); meta <- dados("enade_q31_meta.csv")
-## `be`, e nao `b`: os frames de wage1 definem `b <- coef(modelo)`, e no script
-## tangulado, que roda tudo numa sessao, o nome colidiria (CLAUDE.md 5.31).
-be <- setNames(co$coeficiente, co$termo)
-e <- list(b = be, n = meta$n, E = meta$escolaridade_avaliada,
-          efeito = be[["G"]] + be[["ExG"]] * meta$escolaridade_avaliada)
-dec <- function(p) if (p < m$alpha) "rejeita" else "não rejeita"
-cat(sprintf("$\\widehat{\\log Y} = %s %s \\log L %s \\log K$\n\n", nm(m$b0, 2), ns(m$b1, 2), ns(m$b2, 2)))
-tab(data.frame(
-  `Hipótese` = c("$H_0: \\beta_1 = 0$", "$H_0: \\beta_2 = 0$", "$H_0: \\beta_1 = \\beta_2 = 0$"),
-  `Estatística` = paste0("$", c(sprintf("t = %s", nm(m$t1, 2)), sprintf("t = %s", nm(m$t2, 2)),
-                                sprintf("F = %s", nm(m$F, 1))), "$"),
-  `Decisão` = sapply(c(m$p1, m$p2, m$pF), dec), check.names = FALSE),
-    caption = "Estimativas e $p$-valores do exemplo")
-cat(sprintf("Para o modelo das firmas, com $S_e^2 = %s$, a matriz de covariância estimada é $S_e^2(\\mathbf{X}^\\top\\mathbf{X})^{-1}$, como na aula passada:\n", nm(m$Se2, 4)))
-## Em forma matricial, e nao em somatorios: a variancia de cada estimador e a
-## entrada da diagonal na posicao dele, e a covariancia e a entrada fora da
-## diagonal que cruza os dois (ADR 0014). A primeira linha e a primeira coluna
-## sao do intercepto, que a aula nao usa.
-## Duas equacoes, e nao uma: matriz e leitura na mesma linha transbordam 98 pt.
-eq(sprintf("S_e^2(\\mathbf{X}^\\top\\mathbf{X})^{-1} = %s",
-           mat(m$Se2 * m$XtXinv, fmt = function(z) nm(z, 3))))
-eq(sprintf("\\Var(\\hat\\beta_1) = %s, \\qquad \\Cov(\\hat\\beta_1,\\hat\\beta_2) = %s.",
-           nm(m$V[1,1], 3), nm(m$cov12, 3)))
-cs <- combinacao(m, c(1, 1)); cd <- combinacao(m, c(1, -1))
-eqs(sprintf("\\Var(\\hat\\beta_1 + \\hat\\beta_2) &= %s + %s + 2(%s) = %s & S_{\\hat\\theta} &= %s",
-            nm(m$V[1,1], 3), nm(m$V[2,2], 3), nm(m$cov12, 3), nm(cs$var, 3), nm(cs$S, 3)),
-    sprintf("\\Var(\\hat\\beta_1 - \\hat\\beta_2) &= %s + %s - 2(%s) = %s & S_{\\hat\\theta} &= %s",
-            nm(m$V[1,1], 3), nm(m$V[2,2], 3), nm(m$cov12, 3), nm(cd$var, 3), nm(cd$S, 3)))
-cat(sprintf("\nOs mesmos dois estimadores, os mesmos dados. A soma tem erro padrão $%s$; a diferença, $%s$ --- cerca de %s vezes maior.\n",
-            nm(cs$S, 3), nm(cd$S, 3), nm(cd$S / cs$S, 0)))
-cs <- combinacao(m, c(1, 1))
-eq(sprintf("\\underbrace{S_{\\hat\\beta_1} = %s}_{\\text{um coeficiente}} \\qquad > \\qquad \\underbrace{S_{\\hat\\beta_1 + \\hat\\beta_2} = %s}_{\\text{a soma dos dois}}",
-           nm(m$Sb1, 3), nm(cs$S, 3)))
-cd <- combinacao(m, c(1, -1))
-cat("Testando $H_0: \\beta_1 = \\beta_2$, isto é $\\lambda = (1,-1)$ e $c = 0$:\n")
-eq(sprintf("\\hat\\theta = %s - %s = %s, \\qquad t = %s = %s, \\qquad |t| %s %s.",
-           nm(m$b1, 2), nm(m$b2, 2), nm(cd$theta, 2),
-           frac(nm(cd$theta, 2), nm(cd$S, 3)), nm(cd$t, 2),
-           if (abs(cd$t) < m$tc) "<" else ">", nm(m$tc, 2)))
-c0 <- 1; cs <- combinacao(m, c(1, 1), c0)
-cat(sprintf("Testando $H_0: \\beta_1 + \\beta_2 = %s$, retornos constantes de escala, com $\\lambda = (1,1)$:\n", ni(c0)))
-eq(sprintf("\\hat\\theta = %s + %s = %s, \\qquad t = %s = %s, \\qquad |t| %s %s.",
-           nm(m$b1, 2), nm(m$b2, 2), nm(cs$theta, 2),
-           frac(sprintf("%s - %s", nm(cs$theta, 2), ni(c0)), nm(cs$S, 3)), nm(cs$t, 2),
-           if (abs(cs$t) < m$tc) "<" else ">", nm(m$tc, 2)))
-cd <- combinacao(m, c(1, -1)); cs <- combinacao(m, c(1, 1), 1)
-## A decisao e DERIVADA dos numeros, e nao afirmada em prosa: e o que impede a
-## frase de ficar falsa quando o exemplo muda -- ver MISTAKES.md 26.
-cat(sprintf("Nenhuma das duas é rejeitada, e por motivos opostos. Na diferença, a discrepância é de $%s$ contra erro padrão de $%s$. Na soma, a discrepância é de $%s$ contra erro padrão de $%s$.\n",
-            nm(abs(cd$theta), 2), nm(cd$S, 2),
-            nm(abs(cs$theta - 1), 2), nm(cs$S, 2)))
-d <- m$dados
-RSSr <- sum(resid(lm(log(Y) ~ I(log(L) + log(K)), data = d))^2)
-tab(data.frame(Modelo = c("Irrestrito", "Restrito"),
-               RSS = paste0("$", nm(c(m$RSS, RSSr), 3), "$"),
-               `Parâmetros` = paste0("$", ni(c(m$k + 1, m$k)), "$"), check.names = FALSE),
-    caption = "RSS do modelo irrestrito e do restrito")
-cat(sprintf("\nA restrição custou $%s - %s = %s$ em soma de quadrados dos resíduos.\n",
-            nm(RSSr, 3), nm(m$RSS, 3), nm(RSSr - m$RSS, 3)))
-d <- m$dados
-RSSr <- sum(resid(lm(log(Y) ~ I(log(L) + log(K)), data = d))^2)
-tf <- teste_F(RSSr, m$RSS, 1, m$gl, m$alpha)
-cat(sprintf("No exemplo, $q = %s$:\n", ni(tf$q)))
-eq(sprintf("F = %s = %s = %s.",
-           frac(sprintf("(%s-%s)/%s", nm(RSSr, 3), nm(m$RSS, 3), ni(tf$q)),
-                sprintf("%s/%s", nm(m$RSS, 3), ni(m$gl))),
-           frac(nm(RSSr - m$RSS, 3), nm(m$Se2, 4)), nm(tf$F, 2)))
-cat(sprintf("\nSob $H_0$, $F$ segue distribuição $F(q,\\ n-k-1)$ --- aqui, $F(%s,%s)$, cujo valor crítico a $%s\\%%$ é $%s$. %s.\n",
-            ni(tf$q), ni(tf$gl), ni(100 * m$alpha), nm(tf$Fc, 2), if (tf$F > tf$Fc) "Rejeita-se" else "Não se rejeita"))
-tab(data.frame(`Grau de liberdade` = c("Numerador, $q$", "Denominador, $n-k-1$"),
-               `O que conta` = c("quantas restrições foram impostas",
-                                 "quanta informação sobra no modelo livre"),
-               `No exemplo` = paste0("$", ni(c(1, m$gl)), "$"), check.names = FALSE),
-    caption = "Graus de liberdade do teste $F$")
-d1 <- m$k; d2 <- m$gl; Fc <- qf(1 - m$alpha, d1, d2); lim <- round(1.6 * Fc, 1)
-## densidade F(d1,d2) em forma fechada, avaliada ponto a ponto pelo pgfplots
-cte <- signif(gamma((d1 + d2) / 2) / (gamma(d1 / 2) * gamma(d2 / 2)) *
-              (d1 / d2)^(d1 / 2), 6)
-dens <- sprintf("%s*x^(%s)*(1+%s*x)^(%s)", cte, d1 / 2 - 1,
-                signif(d1 / d2, 6), -(d1 + d2) / 2)
-cat("\\centering\n\\begin{tikzpicture}\n")
-cat(sprintf("\\begin{axis}[width=0.86\\textwidth, height=3.0cm, domain=0.01:%s, samples=200,\n", lim))
-cat(sprintf("  axis lines=left, ymin=0, ymax=1.05, xlabel={$F$}, ylabel={},\n  xtick={0,%s}, xticklabels={$0$,$%s$},\n",
-            round(Fc, 2), nm(Fc, 1)))
-cat("  ytick=\\empty, clip=false, x tick label style={font=\\tiny}]\n")
-cat(sprintf("  \\addplot[thick, black] {%s};\n", dens))
-cat(sprintf("  \\addplot[draw=none, fill=catcolor, fill opacity=0.28, domain=%s:%s] {%s} \\closedcycle;\n",
-            round(Fc, 2), lim, dens))
-cat(sprintf("  \\draw[dashed, catcolor] (axis cs:%s,0) -- (axis cs:%s,0.16);\n",
-            round(Fc, 2), round(Fc, 2)))
-cat("\\end{axis}\n\\end{tikzpicture}\n")
-cat(sprintf("Densidade $F(%s,%s)$, com o crítico a $%s\\%%$ em $%s$. O $F$ global do modelo, $%s$, cai muito à direita do eixo mostrado.\n",
-            ni(m$k), ni(m$gl), ni(100 * m$alpha), nm(m$Fc, 1), nm(m$F, 1)))
-cd <- combinacao(m, c(1, -1)); cs <- combinacao(m, c(1, 1), 1)
-cat(sprintf("Verificando com $H_0: \\beta_1 = \\beta_2$: $t = %s$ e $t^2 = %s = F$. E os críticos também correspondem: $t_{%s}(%s)^2 = %s^2 = %s = F_{%s}(1,%s)$.\n\n",
-            nm(cd$t, 2), nm(cd$F, 2), nm(m$alpha / 2, 3), ni(m$gl), nm(m$tc, 2),
-            nm(m$tc^2, 2), nm(m$alpha, 2), ni(m$gl)))
-cat(sprintf("Testando $H_0: \\beta_1 + \\beta_2 = 1$ pelos dois caminhos: $\\text{RSS}_r = %s$, logo $F = (%s-%s)/(%s/%s) = %s$, e $t^2 = %s^2 = %s$.\n",
-            nm(cs$RSSr, 3), nm(cs$RSSr, 3), nm(m$RSS, 3), nm(m$RSS, 3), ni(m$gl), nm(cs$F, 2),
-            nm(cs$t, 2), nm(cs$F, 2)))
-cd <- combinacao(m, c(1, -1)); cs <- combinacao(m, c(1, 1), 1)
-tab(data.frame(
-  `Hipótese` = c("$\\beta_1 = 0$", "$\\beta_1 = \\beta_2$", "$\\beta_1 + \\beta_2 = 1$",
-                 "$\\beta_1 = \\beta_2 = 0$"),
-  `$q$` = paste0("$", c(1, 1, 1, m$k), "$"),
-  Teste = c("$t$, ou $F$ com $q=1$", "$t$ da combinação, ou $F$", "idem", "$F$"),
-  `No exemplo` = paste0("$", c(sprintf("t = %s", nm(m$t1, 2)), sprintf("F = %s", nm(cd$F, 2)),
-                               sprintf("F = %s", nm(cs$F, 2)), sprintf("F = %s", nm(m$F, 1))), "$"),
-  check.names = FALSE),
-    caption = "A família de testes $F$, de $q=1$ a $q=k$")
-d <- m$dados
-irrestrito <- lm(log(Y) ~ log(L) + log(K), data = d)
-lh <- linearHypothesis(irrestrito, "log(L) = log(K)")
-tab(data.frame(`\texttt{Res.Df}` = ni(lh$Res.Df), `\texttt{RSS}` = nm(lh$RSS, 3),
-               `\texttt{Df}` = c("", ni(lh$Df[2])), `\texttt{Sum of Sq}` = c("", nm(lh$`Sum of Sq`[2], 3)),
-               `\texttt{F}` = c("", nm(lh$F[2], 2)), `\texttt{Pr(>F)}` = c("", nm(lh$`Pr(>F)`[2], 3)),
-               check.names = FALSE),
-    caption = "Resultado de \\texttt{linearHypothesis()}")
-d <- m$dados
-irrestrito <- lm(log(Y) ~ log(L) + log(K), data = d)
-restrito   <- lm(log(Y) ~ I(log(L) + log(K)), data = d)
-RSSur <- sum(resid(irrestrito)^2); RSSr <- sum(resid(restrito)^2)
-gl <- df.residual(irrestrito)
-tab(data.frame(`$\\text{RSS}_{ur}$` = nm(RSSur, 2), `$\\text{RSS}_r$` = nm(RSSr, 2),
-               `$q$` = "1", `$n-k-1$` = ni(gl),
-               `$F$` = nm(((RSSr - RSSur) / 1) / (RSSur / gl), 2), check.names = FALSE),
-    caption = "A mesma conta feita à mão")
-library(ggplot2)
-d <- m$dados
-irrestrito <- lm(log(Y) ~ log(L) + log(K), data = d)
-restrito   <- lm(log(Y) ~ I(log(L) + log(K)), data = d)
-g <- data.frame(modelo = factor(c("Irrestrito", "Restrito"), levels = c("Restrito", "Irrestrito")),
-                rss = c(sum(resid(irrestrito)^2), sum(resid(restrito)^2)))
-p <- ggplot(g, aes(rss, modelo)) +
-  geom_col(width = 0.45, fill = "grey70") +
-  ## O rotulo passa pelo nm(), como todo numero do deck: virgula decimal, e
-  ## dentro de $...$ porque quem compoe o texto agora e o LaTeX.
-  geom_text(aes(label = sprintf("$%s$", nm(rss, 3))), hjust = -0.15, size = 2.6) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.20))) +
-  labs(x = "Soma de quadrados dos resíduos", y = NULL,
-       caption = "O $F$ mede este acréscimo, em unidades da variância residual do modelo irrestrito.") +
+## Os 88 imoveis de wooldridge::hprice1, em logaritmo dos tres lados: preco de
+## venda, area do terreno e area construida.
+data("hprice1")
+hp <- rlm2(log(hprice1$lotsize), log(hprice1$sqrft), log(hprice1$price))
+hps <- combinacao(hp, c(1, 1), 1)
+m$b0; m$b1; m$b2          # coeficientes estimados
+c(t1 = m$t1, t2 = m$t2)   # t de cada coeficiente, um por vez
+c(F = m$F, p = m$pF)      # F global, os dois de uma vez
+m$b1 + m$b2     # a soma estimada
+bc <- c(m$b1, m$b2)
+Vd <- m$V             # a matriz estimada, com covariancia negativa
+V0 <- diag(diag(Vd))  # a mesma variancia de cada coeficiente, sem covariancia
+raio <- sqrt(2 * qf(0.95, 2, m$gl))
+niveis <- c("Covariância negativa", "Covariância nula")
+
+elipse <- function(V, cen) {
+  E <- eigen(V); tt <- seq(0, 2 * pi, length.out = 181)
+  d <- data.frame(t(bc + raio * E$vectors %*% diag(sqrt(E$values)) %*% rbind(cos(tt), sin(tt))))
+  names(d) <- c("b1", "b2"); d$cen <- cen; d
+}
+nuvem <- function(V, cen, R = 400) {
+  d <- data.frame(t(bc + t(chol(V)) %*% matrix(rnorm(2 * R), 2, R)))
+  names(d) <- c("b1", "b2"); d$cen <- cen; d
+}
+## Meias-diagonais da elipse: ao longo de (1, 1) muda a soma dos dois
+## coeficientes, e ao longo de (1, -1) muda a diferenca.
+eixos <- function(V, cen) data.frame(
+  cen = cen, s1 = raio * sqrt(V[1, 1]), s2 = raio * sqrt(V[2, 2]),
+  hs = raio * sqrt(sum(V)) / 2,
+  hd = raio * sqrt(V[1, 1] + V[2, 2] - 2 * V[1, 2]) / 2)
+
+semente(20260924)
+el <- rbind(elipse(Vd, niveis[1]), elipse(V0, niveis[2]))
+nu <- rbind(nuvem(Vd, niveis[1]), nuvem(V0, niveis[2]))
+ex <- rbind(eixos(Vd, niveis[1]), eixos(V0, niveis[2]))
+el$cen <- factor(el$cen, levels = niveis)
+nu$cen <- factor(nu$cen, levels = niveis)
+ex$cen <- factor(ex$cen, levels = niveis)
+
+
+p <- ggplot() +
+  geom_point(data = nu, aes(b1, b2), size = 0.3, alpha = 0.3, colour = "grey50") +
+  geom_path(data = el, aes(b1, b2), colour = "firebrick", linewidth = 0.6) +
+  geom_segment(data = ex, aes(x = bc[1] - s1, xend = bc[1] + s1, y = bc[2], yend = bc[2]),
+               colour = "grey25", linewidth = 0.4) +
+  geom_segment(data = ex, aes(x = bc[1], xend = bc[1], y = bc[2] - s2, yend = bc[2] + s2),
+               colour = "grey25", linewidth = 0.4) +
+  geom_segment(data = ex, aes(x = bc[1] - hs, xend = bc[1] + hs, y = bc[2] - hs, yend = bc[2] + hs),
+               linetype = "dashed", linewidth = 0.4) +
+  geom_segment(data = ex, aes(x = bc[1] - hd, xend = bc[1] + hd, y = bc[2] + hd, yend = bc[2] - hd),
+               linetype = "dashed", linewidth = 0.4) +
+  geom_text(data = ex, aes(x = bc[1] + s1, y = bc[2], label = "$S_{\\hat\\beta_1}$"),
+            hjust = -0.15, vjust = 1.4, size = 2.1) +
+  geom_text(data = ex, aes(x = bc[1], y = bc[2] + s2, label = "$S_{\\hat\\beta_2}$"),
+            hjust = -0.15, vjust = -0.3, size = 2.1) +
+  facet_wrap(~ cen) +
+  coord_equal() +
+  labs(x = "$\\hat\\beta_1$", y = "$\\hat\\beta_2$",
+       caption = "Elipse a 95\\% e 400 reamostragens do erro. Tracejadas, as direções da soma e da diferença.") +
+  theme_minimal(base_size = 8) +
+  theme(panel.grid.minor = element_blank(), plot.caption = element_text(size = 5.5),
+        strip.text = element_text(size = 7),
+        axis.title.y = element_text(angle = 0, vjust = 1))
+## Quanto a soma e a diferenca variam, em cada cenario
+ex[, c("cen", "hs", "hd")]
+print(p)
+Vh <- m$Se2 * m$XtXinv
+diag(Vh)                       # variancias, uma por coeficiente
+Vh[2, 3]                       # covariancia entre b1 e b2
+m$Se2                          # variancia residual estimada
+cs$var; cs$S    # variancia e erro padrao de b1 + b2
+cd$var; cd$S    # variancia e erro padrao de b1 - b2
+cd$S / cs$S     # quantas vezes a diferenca e menos precisa que a soma
+m$Sb1           # erro padrao de b1 sozinho
+cs$S            # erro padrao de b1 + b2
+m$V[2, 2] + 2 * m$cov12   # negativo: e a condicao para a soma ser mais precisa
+cd$theta        # b1 - b2
+cd$S            # erro padrao da diferenca
+cd$t            # estatistica t
+m$tc            # valor critico bilateral a 5%
+cs$theta        # b1 + b2
+cs$S            # erro padrao da soma
+cs$t            # (b1 + b2 - 1) / S
+t0 <- si[2, 1] / si[2, 2]                 # H0: b2 = 0
+t13 <- (si[2, 1] - 1 / 3) / si[2, 2]      # H0: b2 = 1/3
+si                                        # coeficientes da forma intensiva
+c(t0 = t0, t13 = t13)
+2 * pt(-abs(c(t0, t13)), m$gl)            # p-valores
+c(RSSr = RSSr_d, RSSur = m$RSS, custo = RSSr_d - m$RSS)
+anova(fr, mu)   # o mesmo custo, pela funcao pronta
+tf_d <- teste_F(RSSr_d, m$RSS, q = 1, gl = m$gl, alpha = m$alpha)
+tf_d$F; tf_d$Fc; tf_d$p
+## O residuo da forma intensiva, reescrito em log Y, e o mesmo residuo
+b0i <- coef(fi)[1]; b2i <- coef(fi)[2]
+r_logY <- log(d$Y) - (b0i + log(d$L) + b2i * (log(d$K) - log(d$L)))
+tf_s <- teste_F(RSSr_s, m$RSS, q = 1, gl = m$gl, alpha = m$alpha)
+all.equal(as.vector(resid(fi)), as.vector(r_logY))
+c(F = tf_s$F, Fc = tf_s$Fc, p = tf_s$p)
+b        # coeficientes
+gl       # graus de liberdade do residuo
+lam <- c(0, 0, 1, -1)              # a primeira posicao e a do intercepto
+theta <- sum(lam * b)              # lambda' b
+S <- sqrt(as.numeric(t(lam) %*% V %*% lam))   # raiz de lambda' V lambda
+c(theta = theta, S = S, t = theta / S, tc = qt(0.975, gl))
+tobs <- theta / S; tc <- qt(0.975, gl)
+den <- data.frame(x = seq(-5, 5, length.out = 400))
+den$y <- dt(den$x, gl)
+p <- ggplot(den, aes(x, y)) +
+  geom_area(data = subset(den, x <= -tc), fill = "grey80") +
+  geom_area(data = subset(den, x >= tc), fill = "grey80") +
+  geom_line(linewidth = 0.6) +
+  geom_vline(xintercept = c(-tc, tc), linetype = "dashed", colour = "grey40",
+             linewidth = 0.4) +
+  geom_vline(xintercept = tobs, colour = "firebrick", linewidth = 0.7) +
+  annotate("text", x = tobs, y = max(den$y) * 0.9,
+           label = sprintf("$t = %s$", nm(tobs, 2)), colour = "firebrick",
+           hjust = -0.12, size = 2.6) +
+  annotate("text", x = 5, y = max(den$y) * 0.9,
+           label = sprintf("$\\pm t_{0{,}025} = %s$", nm(tc, 2)),
+           hjust = 1, size = 2.4) +
+  expand_limits(y = 0) +
+  labs(x = "$t$", y = NULL,
+       caption = "Distribuição $t$ com os graus de liberdade do resíduo. Em cinza, as duas caudas de 2,5\\%.") +
   theme_minimal(base_size = 9) +
-  theme(plot.caption = element_text(size = 6))
-fig_salva("custo_da_restricao_rss.pdf", p, largura = 5.2, altura = 1.35,
-          alt = "Duas barras horizontais comparando a soma de quadrados dos resíduos do modelo restrito e do irrestrito.")
-lh <- linearHypothesis(modelo, "exper = tenure")
-b <- coef(modelo); V <- vcov(modelo)
-theta <- b[["exper"]] - b[["tenure"]]
-S <- sqrt(V["exper", "exper"] + V["tenure", "tenure"] - 2 * V["exper", "tenure"])
-eq(sprintf("H_0: \\beta_{\\text{exper}} - \\beta_{\\text{tenure}} = 0, \\qquad \\hat\\theta = %s, \\qquad S_{\\hat\\theta} = %s.",
-           nm(theta, 4), nm(S, 4)))
-tab(data.frame(`$\\hat\\theta$` = nm(theta, 4), `$t$` = nm(theta / S, 2),
-               `$F$` = nm(lh$F[2], 2), `$p$` = nm(lh$`Pr(>F)`[2], 4),
-               check.names = FALSE),
-    caption = "Teste de $\\beta_{\\text{exper}} = \\beta_{\\text{tenure}}$ sobre \\texttt{wage1}")
-library(ggplot2)
-b <- coef(modelo); V <- vcov(modelo); gl <- df.residual(modelo)
-theta <- b[["exper"]] - b[["tenure"]]
-S <- sqrt(V["exper", "exper"] + V["tenure", "tenure"] - 2 * V["exper", "tenure"])
+  theme(panel.grid.minor = element_blank(), axis.text.y = element_blank(),
+        panel.grid.major.y = element_blank(), plot.caption = element_text(size = 6))
+print(p)
 tc <- qt(0.975, gl)
-## O sinal de menos vai como matematica. O caractere U+2212, que estava aqui,
-## nao existe na fonte de composicao do tikz e sairia vazio ou como caixa.
 g <- rbind(
   data.frame(rotulo = "\\texttt{exper}", est = b[["exper"]],  S = sqrt(V["exper", "exper"])),
   data.frame(rotulo = "\\texttt{tenure}", est = b[["tenure"]], S = sqrt(V["tenure", "tenure"])),
   data.frame(rotulo = "\\texttt{exper} $-$ \\texttt{tenure}", est = theta, S = S))
 g$rotulo <- factor(g$rotulo, levels = rev(g$rotulo))
+g$ic_inf <- g$est - tc * g$S; g$ic_sup <- g$est + tc * g$S
 p <- ggplot(g, aes(est, rotulo)) +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_errorbarh(aes(xmin = est - tc * S, xmax = est + tc * S), height = 0.12, linewidth = 0.7) +
+  geom_errorbar(aes(xmin = ic_inf, xmax = ic_sup), orientation = "y", width = 0.12, linewidth = 0.7) +
   geom_point(size = 2.8) +
   labs(x = "Estimativa e intervalo de confiança a 95\\%", y = NULL,
        caption = "A terceira linha é a combinação. Ela tem erro padrão próprio, que não é a soma dos outros dois.") +
   theme_minimal(base_size = 9) +
-  theme(plot.caption = element_text(size = 6))
-fig_salva("combinacao_exper_tenure.pdf", p, largura = 5.2, altura = 1.15,
-          alt = "Intervalos de confiança de exper, de tenure e da diferença entre os dois, com uma linha tracejada no zero.")
-cat(sprintf("Uma função de produção Cobb--Douglas foi estimada em log-log com $n = %s$ firmas e %s regressores ($\\log L$ e $\\log K$). Obteve-se:\n\n",
-            ni(cb$n), ni(cb$k)))
-tab(data.frame(Modelo = c("Irrestrito", "Restrito a $\\beta_1 + \\beta_2 = 1$"),
-               RSS = paste0("$", nm(c(cb$rss_irrestrito, cb$rss_restrito), 2), "$"),
-               check.names = FALSE),
-    caption = "Dados do exercício", tamanho = "small")
-cat(sprintf("\\alert{Item 1.} $q = %s$ restrição. Graus de liberdade: $%s$ no numerador e $n-k-1 = %s-%s-1 = %s$ no denominador.\n",
-            ni(cb$q), ni(cb$q), ni(cb$n), ni(cb$k), ni(cb$gl)))
-cat("\n\\alert{Item 2.}\n")
-eq(sprintf("F = %s = %s = %s.",
-           frac(sprintf("(%s - %s)/%s", nm(cb$rss_restrito, 2), nm(cb$rss_irrestrito, 2), ni(cb$q)),
-                sprintf("%s/%s", nm(cb$rss_irrestrito, 2), ni(cb$gl))),
-           frac(nm(cb$rss_restrito - cb$rss_irrestrito, 2), nm(cb$rss_irrestrito / cb$gl, 4)),
-           nm(cb$F, 2)))
-cat(sprintf("\n\\alert{Item 3.} $F_{0{,}05}(%s,%s) = %s$, e $%s %s %s$: %s $H_0$ a $5\\%%$ ($p = %s$).\n",
-            ni(cb$q), ni(cb$gl), nm(cb$Fc, 2), nm(cb$F, 2),
-            if (cb$F > cb$Fc) ">" else "<", nm(cb$Fc, 2),
-            if (cb$F > cb$Fc) "rejeita-se" else "não se rejeita", nm(cb$p, 4)))
-cat(sprintf("\\alert{Item 4.} %s\n",
-            if (cb$F > cb$Fc) "Os dados não são compatíveis com retornos constantes de escala nesta amostra de firmas."
-            else "Os dados são compatíveis com retornos constantes de escala nesta amostra de firmas."))
-cat(sprintf("Estimou-se, com $n = %s$ trabalhadores, o modelo\n", ni(e$n)))
-eq(sprintf("\\log(S) = %s %s\\,G %s\\,E %s\\,X %s\\,(E \\times G),",
-           nm(be[["intercepto"]], 1), ns(be[["G"]], 2), ns(be[["E"]], 2),
-           ns(be[["X"]], 2), ns(be[["ExG"]], 3)))
-cat("\nem que $S$ é o salário-hora, $G$ é uma binária igual a $1$ para mulheres, $E$ são anos de estudo e $X$ anos de experiência.\n\nAssinale a alternativa correta sobre o diferencial salarial associado a $G$.\n")
-alt <- c(sprintf("O diferencial depende da escolaridade, e para quem tem %s anos de estudo é de aproximadamente $%s\\%%$.",
-                 ni(e$E), nm(100 * e$efeito, 0)),
-         sprintf("O diferencial é constante e igual a $%s\\%%$ para toda a amostra.", nm(100 * be[["G"]], 0)),
-         sprintf("O diferencial é $%s\\%%$, valor pequeno e economicamente irrelevante.", nm(be[["G"]], 2)),
-         "O termo de interação indica que o diferencial desaparece com a escolaridade.",
-         "Não é possível avaliar o diferencial sem conhecer os erros padrão.")
-cat("\\begin{enumerate}\n")
-cat(sprintf("  \\item[(%s)] %s\n", LETTERS[seq_along(alt)], alt), sep = "")
-cat("\\end{enumerate}\n")
-eq(sprintf("\\frac{\\partial \\log S}{\\partial G} = %s %s\\,E \\qquad\\Longrightarrow\\qquad E = %s:\\ %s",
-           nm(be[["G"]], 2), ns(be[["ExG"]], 3), ni(e$E),
-           cx(sprintf("%s %s = %s", nm(be[["G"]], 2), ns(be[["ExG"]] * e$E, 2), nm(e$efeito, 2)))))
-tab(data.frame(Alternativa = c("(B)", "(C)", "(D)", "(E)"),
-  `Por que está errada` = c(
-    "Ignora a interação; o diferencial seria constante só se $\\beta_{EG} = 0$.",
-    sprintf("Confunde $%s$ com porcentagem; em modelo log-lin o coeficiente é semi-elasticidade.", nm(be[["G"]], 2)),
-    sprintf("O sinal de $\\beta_{EG}$ é %s: o diferencial \\alert{aumenta} em módulo com a escolaridade.",
-            if (be[["ExG"]] < 0) "negativo" else "positivo"),
-    "O erro padrão é necessário para \\alert{testar}, não para \\alert{avaliar a magnitude}."),
-  check.names = FALSE),
-    caption = "Gabarito do Exercício 2")
+  theme(plot.caption = element_text(size = 6), plot.margin = margin(2, 2, 2, 14))
+g[, c("rotulo", "est", "S", "ic_inf", "ic_sup")]
+print(p)
+Rm <- rbind(c(0, 0, 1, 0), c(0, 0, 0, 1))   # uma linha por restricao
+q0 <- c(0, 0)
+Rb <- as.vector(Rm %*% b) - q0              # o quanto os dados se afastam de H0
+M <- Rm %*% V %*% t(Rm)                     # a covariancia das duas discrepancias
+Fobs <- as.numeric(t(Rb) %*% solve(M) %*% Rb) / nrow(Rm)
+c(F = Fobs, Fc = qf(0.95, 2, gl), p = pf(Fobs, 2, gl, lower.tail = FALSE))
+Fc <- qf(0.95, 2, gl)
+den <- data.frame(x = seq(0.02, 6, length.out = 400))
+den$y <- df(den$x, 2, gl)
+p <- ggplot(den, aes(x, y)) +
+  geom_area(data = subset(den, x >= Fc), fill = "grey75") +
+  geom_line(linewidth = 0.6) +
+  geom_vline(xintercept = Fc, linetype = "dashed", colour = "grey40", linewidth = 0.4) +
+  annotate("text", x = Fc, y = max(den$y) * 0.75,
+           label = sprintf("$F_{0{,}05} = %s$", nm(Fc, 2)), hjust = -0.1, size = 2.4) +
+  annotate("segment", x = 5.2, xend = 6, y = max(den$y) * 0.45,
+           yend = max(den$y) * 0.45, colour = "firebrick",
+           arrow = arrow(length = unit(0.06, "in"))) +
+  annotate("text", x = 5.1, y = max(den$y) * 0.45, colour = "firebrick",
+           hjust = 1, size = 2.4,
+           label = sprintf("$F = %s$, fora da escala", nm(Fobs, 2))) +
+  expand_limits(y = 0) +
+  labs(x = "$F$", y = NULL,
+       caption = "Densidade $F$ com 2 e os graus de liberdade do resíduo. Em cinza, a cauda de 5\\%.") +
+  theme_minimal(base_size = 9) +
+  theme(panel.grid.minor = element_blank(), axis.text.y = element_blank(),
+        panel.grid.major.y = element_blank(), plot.caption = element_text(size = 6))
+print(p)
+library(wooldridge); library(car); data("wage1")
+modelo <- lm(log(wage) ~ educ + exper + tenure, data = wage1)
+linearHypothesis(modelo, "exper = tenure")
+## A mesma conta: estimar o restrito e comparar os dois RSS
+restrito <- lm(log(wage) ~ educ + I(exper + tenure), data = wage1)
+anova(restrito, modelo)

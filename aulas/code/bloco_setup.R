@@ -169,6 +169,70 @@ teste_F <- function(RSSr, RSSu, q, gl, alpha = 0.05) {
        p = pf(F, q, gl, lower.tail = FALSE))
 }
 
+## Caminho ate theta e S_theta, a partir do vetor de pesos `lambda` (k + 1
+## posicoes, a primeira do intercepto), do vetor de coeficientes e da matriz
+## de covariancia. `escala` e o expoente de dez que multiplica a linha da
+## variancia.
+comb_passos <- function(lambda, b, V, escala = 0, d = 4, dv = 2) {
+  j <- which(lambda != 0); L <- lambda[j]
+  nome <- function(i) sprintf("\\hat\\beta_%d", i - 1)
+  peso <- function(x) if (abs(x) == 1) "" else paste0(ni(abs(x)), "\\,")
+  liga <- function(x, primeiro) if (x < 0) " - " else if (primeiro) "" else " + "
+  prim <- seq_along(j) == 1
+  sim <- paste0(mapply(function(l, i, p) paste0(liga(l, p), peso(l), nome(i)),
+                       L, j, prim), collapse = "")
+  num <- paste0(mapply(function(l, i, p) paste0(liga(l, p), peso(l), nm(b[i], d)),
+                       L, j, prim), collapse = "")
+  theta <- sum(L * b[j]); e <- 10^escala
+  qs <- sprintf("%s\\Var(%s)", ifelse(abs(L) == 1, "", paste0(ni(L^2), "\\,")),
+                sapply(j, nome))
+  qn <- sprintf("%s%s", ifelse(abs(L) == 1, "", paste0(ni(L^2), "\\,")),
+                nm(e * diag(V)[j], dv))
+  cs <- cn <- character(0)
+  if (length(j) > 1) for (a in 1:(length(j) - 1)) for (z in (a + 1):length(j)) {
+    co <- 2 * L[a] * L[z]
+    cs <- c(cs, sprintf("%s%s\\Cov(%s,%s)", if (co < 0) "- " else "+ ",
+                        ni(abs(co)), nome(j[a]), nome(j[z])))
+    cn <- c(cn, sprintf("%s%s(%s)", if (co < 0) "- " else "+ ",
+                        ni(abs(co)), nm(e * V[j[a], j[z]], dv)))
+  }
+  v <- sum(outer(L, L) * V[j, j, drop = FALSE])
+  pref <- if (escala == 0) "" else sprintf("10^{%d}\\,", escala)
+  eqs(paste0("\\hat\\theta = \\bm\\lambda^\\top\\hat{\\bm\\beta} &= ", sim,
+             " = ", num, " = ", nm(theta, d)),
+      paste0(pref, "\\Var(\\hat\\theta) = ", pref,
+             "\\bm\\lambda^\\top\\mathbf{V}\\bm\\lambda &= ", pref, "\\left[",
+             paste(c(paste(qs, collapse = " + "), cs), collapse = " "), "\\right]"),
+      paste0("&= ", paste(c(paste(qn, collapse = " + "), cn), collapse = " "),
+             " = ", nm(e * v, dv)),
+      paste0("S_{\\hat\\theta} = \\sqrt{", nm(e * v, dv), "\\times 10^{-", escala,
+             "}} &= ", nm(sqrt(v), d)))
+  invisible(list(theta = theta, var = v, S = sqrt(v)))
+}
+
+## O mesmo caminho para q restricoes de uma vez, na forma matricial. Devolve o
+## F de Wald, que coincide com o F dos dois RSS sob (P1)-(P7).
+wald_passos <- function(R, b, V, q0, gl, escala = 0, d = 4, dv = 2,
+                        alpha = 0.05) {
+  Rb <- as.vector(R %*% b) - q0; M <- R %*% V %*% t(R); q <- nrow(R)
+  Fo <- as.numeric(t(Rb) %*% solve(M) %*% Rb) / q
+  e <- 10^escala
+  pref <- if (escala == 0) "" else sprintf("10^{%d}\\,", escala)
+  eqs(paste0("\\mathbf{R} &= ", mat(R, fmt = ni),
+             if (any(q0 != 0)) paste0(", \\qquad \\mathbf{q}_0 = ",
+                                      mat(matrix(nm(q0, 0), ncol = 1))) else
+             ", \\qquad \\mathbf{q}_0 = \\mathbf{0}"),
+      paste0("\\mathbf{R}\\hat{\\bm\\beta} - \\mathbf{q}_0 &= ",
+             mat(matrix(nm(Rb, d), ncol = 1))),
+      paste0(pref, "\\mathbf{R}\\mathbf{V}\\mathbf{R}^\\top &= ",
+             mat(matrix(nm(e * M, dv), nrow(M)))),
+      paste0("F = \\frac{(\\mathbf{R}\\hat{\\bm\\beta} - \\mathbf{q}_0)^\\top",
+             "[\\mathbf{R}\\mathbf{V}\\mathbf{R}^\\top]^{-1}",
+             "(\\mathbf{R}\\hat{\\bm\\beta} - \\mathbf{q}_0)}{q} &= ", nm(Fo, 2)))
+  invisible(list(F = Fo, q = q, gl = gl, Fc = qf(1 - alpha, q, gl),
+                 p = pf(Fo, q, gl, lower.tail = FALSE)))
+}
+
 ## Contribuicao marginal de x2 depois de x1, na leitura da ANOVA: o quanto a
 ## SQReg cresce ao passar do modelo restrito ao irrestrito.
 ##

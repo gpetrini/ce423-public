@@ -203,6 +203,36 @@ fig_salva <- function(nome, plot, largura = 6, altura = 3.2,
   invisible(caminho)
 }
 
+## Prosa com numeros embutidos. `{{ }}` delimita uma expressao R, avaliada no
+## ambiente de quem chama, de modo que `pr("erro padrao ${{nm(cs$S, 3)}}$")`
+## le o objeto do bloco. Sao os delimitadores que o banco de questoes ja usa
+## em `bq_tpl`, com a mesma armadilha: chave do LaTeX nao encosta em marcador.
+## `\frac{{{a}}}{b}` aborta com "Expecting '}}'"; escrever `\frac{ {{a}} }{b}`,
+## com o espaco que o TeX ignora em modo matematico. `}}` fora de marcador
+## (`b_{1}}`) e literal, e `{{` literal se escreve `{{{{`.
+##
+## Varios argumentos sao concatenados sem separador: uma frase por argumento,
+## cada uma terminando em "\n", preserva a regra de uma frase por linha no
+## .org e no .tex. `.trim = FALSE` porque o glue, por omissao, apaga a quebra
+## inicial e a final.
+pr <- function(..., env = parent.frame()) {
+  txt <- paste(c(...), collapse = "")
+  cat(as.character(glue::glue(txt, .open = "{{", .close = "}}",
+                              .envir = env, .trim = FALSE)), "\n", sep = "")
+}
+
+## Semente com os tres geradores fixados. O padrao do R e este desde a 3.6.0,
+## mas e um padrao, e o R ja o trocou uma vez (sample() em 3.6.0). Fixa-lo
+## aqui torna a sequencia a mesma em qualquer R >= 3.6, em qualquer maquina,
+## seja qual for o padrao da versao. O que este mecanismo NAO cobre: sorteio
+## feito por pacote com gerador proprio, e mudanca no NUMERO de chamadas ao
+## gerador entre duas versoes do codigo -- essa muda o fluxo, e nenhuma
+## semente a compensa.
+semente <- function(s) {
+  set.seed(s, kind = "Mersenne-Twister", normal.kind = "Inversion",
+           sample.kind = "Rejection")
+}
+
 ## Tabela LaTeX a partir de um data.frame ja formatado como texto.
 ## O comando de tamanho entra DENTRO do float. Envolver o \begin{table} num
 ## grupo TeX -- {\small \begin{table}...} -- faz a tabela sumir do PDF sem erro
