@@ -233,6 +233,32 @@ wald_passos <- function(R, b, V, q0, gl, escala = 0, d = 4, dv = 2,
                  p = pf(Fo, q, gl, lower.tail = FALSE)))
 }
 
+## O procedimento do teste da contribuicao marginal, em cinco caixas (decisao do
+## professor, 2026-10-07). Vive aqui, e nao na camada compartilhada, porque a
+## notacao e da disciplina (ADR Lectures 0034). Serve ao deck, com a cor da
+## categoria, e ao banco de fixacao, em preto (cor = "black"): a impressao e em
+## preto e branco. `destaque` acende caixas; `nota` escreve uma frase abaixo.
+fluxo_contribuicao <- function(destaque = integer(0), cor = "catcolor", nota = NULL) {
+  ## A variancia residual sai ja do ajuste irrestrito (passo 1): ela nao
+  ## depende do restrito (correcao do professor, 2026-10-07).
+  passos <- c("\\textbf{1.} Ajustar o irrestrito\\\\ $\\text{ESS}_{ur}$ e $S_e^2 = \\text{RSS}_{ur}/(n-k-1)$",
+              "\\textbf{2.} Ajustar o restrito\\\\ (sem o regressor avaliado): $\\text{ESS}_r$",
+              "\\textbf{3.} Contribuição\\\\ $\\text{ESS}_{ur} - \\text{ESS}_r$",
+              "\\textbf{4.} Estatística $F$\\\\ contribuição$/q$ sobre $S_e^2$",
+              "\\textbf{5.} Decisão\\\\ $F$ contra $F_{\\alpha}(q,\\,n-k-1)$")
+  x <- c(0, 3.7, 7.4, 5.55, 1.85); y <- c(0, 0, 0, -1.7, -1.7)
+  estilo <- function(j) if (j %in% destaque)
+    sprintf("draw=%s, very thick, fill=%s!12", cor, cor) else "draw=black!60"
+  nos <- vapply(seq_along(passos), function(j)
+    sprintf("\\node[caixa, %s] (p%d) at (%.2f,%.1f) {%s};", estilo(j), j, x[j], y[j], passos[j]), "")
+  setas <- "\\draw[->, thick] (p1) -- (p2); \\draw[->, thick] (p2) -- (p3); \\draw[->, thick] (p3) |- (p4); \\draw[->, thick] (p4) -- (p5);"
+  cat("\\begin{center}\n\\altfig{Fluxograma em cinco caixas do teste da contribuicao marginal: ajustar o irrestrito e obter a variancia residual, ajustar o restrito, calcular a contribuicao, a estatistica F e decidir.}{%\n",
+      "\\begin{tikzpicture}[x=1cm, y=1cm, caixa/.style={rounded corners, align=center, text width=3.1cm, minimum height=1cm, font=\\scriptsize}]\n",
+      paste(nos, collapse = "\n"), "\n", setas, "\n",
+      if (!is.null(nota)) sprintf("\\node[text width=10cm, align=center, font=\\small, anchor=north] at (3.7,-2.45) {%s};\n", nota) else "",
+      "\\end{tikzpicture}}\n\\end{center}\n", sep = "")
+}
+
 ## Contribuicao marginal de x2 depois de x1, na leitura da ANOVA: o quanto a
 ## SQReg cresce ao passar do modelo restrito ao irrestrito.
 ##
@@ -288,6 +314,23 @@ parcial <- function(m) {
        via_t2 = m$t2^2 / (m$t2^2 + m$gl),
        via_R2_1 = (m$R2 - rY2^2) / (1 - rY2^2),
        via_R2_2 = (m$R2 - rY1^2) / (1 - rY1^2))
+}
+
+cf <- function(m) summary(m)$coefficients
+## `destaque_p` poe em caixa o p-valor das linhas indicadas, para o frame cuja
+## leitura e o p-valor, e nao o coeficiente.
+tab_coef <- function(m, termos, rotulos, destaque = integer(0), caption, tamanho = "small", d = 1,
+                     j = match(termos, names(coef(m))) - 1, destaque_p = integer(0), fiv = NULL) {
+  x <- cf(m)[termos, , drop = FALSE]
+  b <- nm(x[, 1], d); b[destaque] <- sprintf("$\\boxed{%s}$", b[destaque])
+  p <- ifelse(x[, 4] < 1e-4, "$< 0.0001$", nm(x[, 4], 4))
+  p[destaque_p] <- sprintf("$\\boxed{%s}$", gsub("\\$", "", p[destaque_p]))
+  tb <- data.frame(Termo = rotulos, `Parâmetro` = sprintf("$\\hat\\beta_{%d}$", j),
+                  Coeficiente = b, `Erro padrão` = nm(x[, 2], d),
+                  `$t$` = nm(x[, 3], 2), `$p$-valor` = p, check.names = FALSE)
+  ## `fiv`: um valor por termo (NA no intercepto), em coluna propria.
+  if (!is.null(fiv)) tb[["$\\text{FIV}_j$"]] <- ifelse(is.na(fiv), "---", nm(fiv, 2))
+  tab(tb, caption = caption, align = c("l", "c", rep("r", ncol(tb) - 2)), tamanho = tamanho)
 }
 
 ## Os quatro diagnosticos que a tabela de pressupostos reporta. Cada um testa

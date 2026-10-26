@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # CE423 - Econometria I
-# 2. Regressao Linear Multipla - Contribuicao Marginal e Correlacao Parcial
+# 2. Regressao Linear Multipla - Contribuicao Marginal
 #
 # Este arquivo e gerado a partir dos slides da aula: cada trecho aqui e um
 # trecho que apareceu na tela. Roda de cima a baixo, sem alteracao.
@@ -19,66 +19,63 @@ if (!file.exists("code/bloco_setup.R")) {
 }
 source("code/bloco_setup.R")
 library(wooldridge); library(ggplot2)
-m <- ctx_firmas()
+options(lectures_decimal = ".")
+m <- ctx_metais(); d <- m$dados
 kL <- contribuicao(m, "x1")   # K depois de L
 lK <- contribuicao(m, "x2")   # L depois de K
-p  <- parcial(m)
+mu <- lm(log(Y) ~ log(L) + log(K), data = d)
+mL <- lm(log(Y) ~ log(L), data = d)
+mK <- lm(log(Y) ~ log(K), data = d)
 dec <- function(pv) if (pv < m$alpha) "rejeita $H_0$" else "não rejeita $H_0$"
 data("wage1")
 irr <- lm(log(wage) ~ educ + exper + tenure, data = wage1)
 res <- lm(log(wage) ~ educ, data = wage1)
 av  <- anova(irr)
-e <- ctx_firmas_ex(); d <- e$dados
-# So as duas contribuicoes. As parcelas grandes (ESS do primeiro regressor e
-# RSS) estao na tabela do frame anterior; postas aqui, tornariam estas duas
-# invisiveis -- 813 contra 31.014 nao se distingue de zero numa barra.
-d <- data.frame(
-  qual = factor(c("$K$, dado $L$", "$L$, dado $K$"),
-                levels = c("$K$, dado $L$", "$L$, dado $K$")),
-  valor = c(kL$cont, lK$cont))
-p1 <- ggplot(d, aes(qual, valor)) +
-  geom_col(width = 0.5, fill = "grey35") +
-  geom_text(aes(label = nm(valor, 1)), vjust = -0.5, size = 2.7) +
-  labs(x = NULL, y = "Soma de quadrados") +
-  expand_limits(y = 0) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
-  theme_minimal(base_size = 9) +
-  theme(panel.grid.minor = element_blank(),
-        panel.grid.major.x = element_blank())
-gr <- data.frame(x = seq(1.2, 14, length.out = 400))
-gr$d <- df(gr$x, 1, m$gl)
-reg <- subset(gr, x >= kL$Fc)
-p1 <- ggplot(gr, aes(x, d)) +
-  geom_area(data = reg, aes(x, d), fill = "grey72") +
+summary(mu)   # o ajuste das aulas de estimacao e de combinacoes lineares
+c(TSS = m$TSS, ESS = m$ESS, RSS = m$RSS)
+gd <- data.frame(x = seq(0.3, max(8, 1.8 * kL$Fc), length.out = 400))
+gd$d <- df(gd$x, 1, m$gl)
+gd$faixa <- factor(ifelse(gd$x < 1, "a", ifelse(gd$x < kL$Fc, "b", "c")), levels = c("a", "b", "c"))
+p0 <- ggplot(gd, aes(x, d)) +
+  geom_area(data = subset(gd, faixa == "b"), fill = "grey80") +
+  geom_area(data = subset(gd, faixa == "c"), fill = "grey45") +
   geom_line(colour = "grey15", linewidth = 0.6) +
-  geom_vline(xintercept = kL$F, linetype = "dashed", colour = "grey10") +
-  annotate("text", x = kL$F, y = 0.085, hjust = -0.12, size = 2.6,
-           label = sprintf("$F = %s$", nm(kL$F, 2))) +
-  annotate("text", x = kL$Fc, y = 0.038, hjust = 1.08, size = 2.6,
-           label = sprintf("$F_{0{,}05} = %s$", nm(kL$Fc, 2))) +
-  labs(x = sprintf("$F_{1,\\,%s}$", ni(m$gl)), y = "Densidade") +
+  geom_vline(xintercept = c(1, kL$Fc), linetype = "dashed", colour = "grey20") +
+  annotate("text", x = (1 + kL$Fc) / 2, y = 0.42, size = 2.5, label = "$\\bar R^2$ sobe, o teste não rejeita") +
+  annotate("text", x = kL$Fc + 0.15, y = 0.2, hjust = 0, size = 2.5, label = "o teste rejeita") +
+  annotate("text", x = 1, y = -0.03, size = 2.4, label = "$1$") +
+  annotate("text", x = kL$Fc, y = -0.03, size = 2.4, label = paste0("$F_{0.05} = ", nm(kL$Fc, 2), "$")) +
+  labs(x = paste0("$F$ da contribuição, sob $H_0$: $F_{1,\\,", ni(m$gl), "}$"), y = "Densidade") +
   expand_limits(y = 0) +
   theme_minimal(base_size = 9) +
   theme(panel.grid.minor = element_blank())
-d <- rbind(
-  data.frame(painel = "Simples: $\\log Y$ contra $\\log K$", x = m$x2, y = m$y),
-  data.frame(painel = "Parcial: res\\'iduos, descontado $L$", x = p$e21, y = p$ey1))
-d$painel <- factor(d$painel, levels = c("Simples: $\\log Y$ contra $\\log K$",
-                                        "Parcial: res\\'iduos, descontado $L$"))
-p1 <- ggplot(d, aes(x, y)) +
+anova(mL, mu)   # restrito contra irrestrito: Df = q, Res.Df = n - k - 1
+c(ganho = kL$ESSu - kL$ESSr, perda = kL$RSSr - kL$RSSu)
+c(ESSr = kL$ESSr, ESSur = kL$ESSu, acrescimo = kL$cont)
+anova(mu)                                              # L, depois K
+anova(lm(log(Y) ~ log(K) + log(L), data = d))          # K, depois L
+p1 <- ggplot(d, aes(log(L), log(K))) +
   geom_point(size = 1.4, colour = "grey20") +
   geom_smooth(method = "lm", se = FALSE, colour = "grey45", linewidth = 0.6,
               formula = y ~ x) +
-  facet_wrap(~ painel, scales = "free") +
-  labs(x = NULL, y = NULL) +
+  labs(x = "$\\log L$", y = "$\\log K$") +
+  theme_minimal(base_size = 9) +
+  theme(panel.grid.minor = element_blank(),
+        axis.title.y = element_text(angle = 0, vjust = 1, margin = margin(r = 6)))
+gr <- data.frame(x = seq(1.2, max(14, 1.15 * kL$F), length.out = 400))
+gr$d <- df(gr$x, 1, m$gl)
+reg <- subset(gr, x >= kL$Fc)
+p3 <- ggplot(gr, aes(x, d)) +
+  geom_area(data = reg, aes(x, d), fill = "grey72") +
+  geom_line(colour = "grey15", linewidth = 0.6) +
+  geom_vline(xintercept = kL$F, linetype = "dashed", colour = "grey10") +
+  annotate("text", x = kL$F, y = 0.085, hjust = 1.08, size = 2.6,
+           label = paste0("$F = ", nm(kL$F, 2), "$")) +
+  annotate("text", x = kL$Fc, y = 0.038, hjust = 1.08, size = 2.6,
+           label = paste0("$F_{0.05} = ", nm(kL$Fc, 2), "$")) +
+  labs(x = paste0("$F_{1,\\,", ni(m$gl), "}$"), y = "Densidade") +
   expand_limits(y = 0) +
-  theme_minimal(base_size = 8) +
+  theme_minimal(base_size = 9) +
   theme(panel.grid.minor = element_blank())
 tt <- summary(irr)$coefficients["tenure", "t value"]
-gl <- df.residual(irr)
 av2 <- anova(lm(log(wage) ~ tenure + exper + educ, data = wage1))
-eY <- residuals(lm(log(wage) ~ educ + exper, data = wage1))
-eT <- residuals(lm(tenure ~ educ + exper, data = wage1))
-d <- e$dados
-k <- contribuicao(e, "x1"); q <- parcial(e)
-q <- parcial(e)

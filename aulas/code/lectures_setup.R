@@ -115,7 +115,7 @@ alt_ascii <- function(x) {
 }
 
 fig_salva <- function(nome, plot, largura = 6, altura = 3.2,
-                      motor = c("tikz", "pdf"), alt = NULL) {
+                      motor = c("tikz", "pdf"), alt = NULL, centro = TRUE) {
   motor <- match.arg(motor)
   if (motor == "pdf") {
     caminho <- fig(nome)
@@ -194,11 +194,16 @@ fig_salva <- function(nome, plot, largura = 6, altura = 3.2,
     invisible(grDevices::dev.off())
     ## O \input{} vai envolvido em \altfig quando ha alt-text, de modo que o
     ## desenho carregue a entrada /Alt do PDF. Sem alt, emite-se o \input{} nu.
+    ## Centralizada por omissao (decisao do professor, 2026-10-07): uma figura
+    ## de exemplo encostada a esquerda do frame foi corrigida a mao mais de uma
+    ## vez. `centro = FALSE` para a figura que divide coluna com outro objeto.
+    if (centro) cat("\\begin{center}\n")
     if (is.null(alt)) {
       cat(sprintf("\\input{%s}\n", caminho))
     } else {
       cat(sprintf("\\altfig{%s}{\\input{%s}}\n", alt_ascii(alt), caminho))
     }
+    if (centro) cat("\\end{center}\n")
   }
   invisible(caminho)
 }
@@ -232,6 +237,23 @@ semente <- function(s) {
   set.seed(s, kind = "Mersenne-Twister", normal.kind = "Inversion",
            sample.kind = "Rejection")
 }
+
+## Paletas por categoria. "pos" segue o tema whale: azul-marinho em tres
+## intensidades, ocre, cinza e terracota.
+paletas_aula <- list(
+  pos = list(qualitativa = c("#1f3864", "#4a6fa5", "#8fb0d9", "#c9a227", "#7f7f7f", "#b85c38"),
+             pontos      = c("#1f3864", "#b85c38", "#4a6fa5", "#7f7f7f"),
+             divergente  = c(baixo = "#b85c38", alto = "#1f3864")))
+
+paleta_aula <- function() {
+  p <- getOption("lectures_paleta")
+  if (is.null(p) || is.null(paletas_aula[[p]]))
+    stop("declare options(lectures_paleta = ...) no setup da disciplina; paletas: ",
+         paste(names(paletas_aula), collapse = ", "))
+  paletas_aula[[p]]
+}
+
+tema_aula <- function(base_size = 9) ggplot2::theme_minimal(base_size = base_size)
 
 ## Tabela LaTeX a partir de um data.frame ja formatado como texto.
 ## O comando de tamanho entra DENTRO do float. Envolver o \begin{table} num
@@ -275,4 +297,263 @@ tab_serie <- function(..., caption = NULL, tamanho = NULL) {
                            row.names = FALSE),
               tamanho),
       "\n")
+}
+
+## Registro global de exercicios. Criado uma vez: cada familia do banco
+## re-sourcia esta camada, e um registro recriado a cada source apagaria o que
+## as familias anteriores registraram.
+if (!exists("EXERCICIOS_REGISTRO", envir = globalenv(), inherits = FALSE))
+  assign("EXERCICIOS_REGISTRO", new.env(parent = emptyenv()), envir = globalenv())
+
+## Um exercicio e uma lista com id, tema, titulo, ctx, chave, e tres funcoes:
+## dados(ctx, chave); enunciado(dados, ctx), que devolve list(cabeca, itens);
+## e resolucao(dados, ctx), que devolve um vetor com uma parte por item. As
+## partes sao LaTeX. Partir por item e o que deixa o deck emitir cada
+## resolucao num frame, sem `shrink` (CLAUDE.md 26b).
+exercicio_registra <- function(x) {
+  faltam <- setdiff(c("id", "tema", "titulo", "ctx", "chave", "dados",
+                      "enunciado", "resolucao"), names(x))
+  if (length(faltam)) stop("exercicio sem ", paste(faltam, collapse = ", "))
+  assign(x$id, x, envir = EXERCICIOS_REGISTRO)
+  invisible(x$id)
+}
+
+exercicio_busca <- function(id) {
+  if (!exists(id, envir = EXERCICIOS_REGISTRO, inherits = FALSE))
+    stop("exercicio '", id, "' nao registrado -- a familia do banco foi carregada?")
+  get(id, envir = EXERCICIOS_REGISTRO)
+}
+
+## Rotulo de item: (a), (b), ... em paragrafo, e nao `enumerate`, para que um
+## item avulso emitido num frame do deck traga o mesmo rotulo da lista.
+exercicio_rotulo <- function(k, texto)
+  sprintf("\\par\\noindent\\textbf{(%s)}~%s\n", letters[k], texto)
+
+## Texto de um exercicio. `ctx` e `chave` trocam o contexto e a amostra sem
+## editar o banco.
+exercicio_texto <- function(id, ctx = NULL, chave = NULL) {
+  x <- exercicio_busca(id)
+  ctx <- ctx %||% x$ctx; chave <- chave %||% x$chave
+  d <- x$dados(ctx, chave)
+  en <- x$enunciado(d, ctx); rs <- x$resolucao(d, ctx)
+  if (length(rs) != length(en$itens))
+    stop("exercicio '", id, "': ", length(en$itens), " itens e ",
+         length(rs), " partes de resolucao")
+  list(id = id, titulo = x$titulo, tema = x$tema, ctx = ctx$nome, chave = chave,
+       cabeca = en$cabeca, itens = en$itens, resolucao = rs)
+}
+
+## Emissao no deck. `parte = "enunciado"` emite a cabeca e os itens;
+## `parte = "resolucao"` emite as partes da resolucao, ou so a do `item`.
+exercicio_emite <- function(id, parte = c("enunciado", "resolucao"), item = NULL,
+                            ctx = NULL, chave = NULL) {
+  tx <- exercicio_texto(id, ctx, chave)
+  k <- item %||% seq_along(tx$itens)
+  out <- if (match.arg(parte) == "enunciado")
+    c(tx$cabeca, exercicio_rotulo(k, tx$itens[k]))
+  else exercicio_rotulo(k, tx$resolucao[k])
+  cat(out, sep = "\n")
+  invisible(tx)
+}
+
+## Ano, semestre, turma e disciplina, lidos do primeiro heading do
+## CRONOGRAMA.org ("* Turma C (Noturno) — 2026/2"), e nao escritos a mao.
+lista_edicao <- function(arquivo = NULL) {
+  if (is.null(arquivo)) {
+    cand <- file.path(c(".", "..", "../.."), "CRONOGRAMA.org")
+    arquivo <- cand[file.exists(cand)][1]
+    if (is.na(arquivo)) stop("CRONOGRAMA.org nao encontrado")
+  }
+  h <- grep("^\\* Turma", readLines(arquivo, encoding = "UTF-8"), value = TRUE)[1]
+  m <- regmatches(h, regexec("Turma (\\S+).*?(\\d{4})/(\\d)", h))[[1]]
+  if (length(m) != 4) stop("cabecalho de turma ilegivel em ", arquivo, ": ", h)
+  list(disciplina = basename(dirname(normalizePath(arquivo))),
+       ano = as.integer(m[3]), semestre = as.integer(m[4]), turma = m[2])
+}
+
+LISTA_AVISO <- paste(
+  "Na prova, itens deste tipo podem aparecer como múltipla escolha, com",
+  "alternativas construídas a partir de erros frequentes de cálculo e de",
+  "leitura.")
+
+## Lista de exercicios a partir de IDs. Emite LaTeX e grava o snapshot da
+## edicao em `snapshots/<lista>.tsv`, substituindo as linhas da mesma edicao:
+## exportar de novo nao acumula duplicatas.
+lista_monta <- function(ids, lista, resolucao = FALSE, edicao = lista_edicao(),
+                        aviso = LISTA_AVISO, snapshot = TRUE) {
+  tx <- lapply(ids, exercicio_texto)
+  if (nzchar(aviso)) cat("\\noindent ", aviso, "\n\n", sep = "")
+  for (k in seq_along(tx)) {
+    t <- tx[[k]]; j <- seq_along(t$itens)
+    cat(sprintf("\\subsection*{Exercício %d. %s}\n\n", k, t$titulo))
+    cat(t$cabeca, exercicio_rotulo(j, t$itens), sep = "\n")
+    if (resolucao)
+      cat("\\subsubsection*{Resolução}\n", exercicio_rotulo(j, t$resolucao), sep = "\n")
+  }
+  if (snapshot) {
+    novo <- data.frame(
+      disciplina = edicao$disciplina, ano = edicao$ano,
+      semestre = edicao$semestre, turma = edicao$turma, lista = lista,
+      posicao = seq_along(tx), id = ids,
+      contexto = vapply(tx, `[[`, "", "ctx"),
+      chave = vapply(tx, `[[`, "", "chave"),
+      sha256 = vapply(tx, function(t)
+        digest::digest(paste(c(t$cabeca, t$itens), collapse = "\n"),
+                       algo = "sha256", serialize = FALSE), ""))
+    arq <- file.path("snapshots", paste0(lista, ".tsv"))
+    dir.create("snapshots", showWarnings = FALSE)
+    velho <- if (file.exists(arq))
+      utils::read.delim(arq, colClasses = "character") else novo[0, ]
+    mesma <- velho$disciplina == edicao$disciplina & velho$ano == edicao$ano &
+             velho$semestre == edicao$semestre & velho$turma == edicao$turma &
+             velho$lista == lista
+    utils::write.table(rbind(velho[!mesma, , drop = FALSE], novo), arq,
+                       sep = "\t", quote = FALSE, row.names = FALSE)
+  }
+  invisible(tx)
+}
+
+## As cinco alternativas da asercao-razao, na ordem canonica. Copia das de
+## moodle_setup (MDL_ALT_RAZAO): esta camada nao depende daquela.
+FX_ALT_RAZAO <- c(
+  "As duas asserções são verdadeiras, e a segunda justifica a primeira.",
+  "As duas asserções são verdadeiras, mas a segunda não justifica a primeira.",
+  "A primeira asserção é verdadeira e a segunda é falsa.",
+  "A primeira asserção é falsa e a segunda é verdadeira.",
+  "As duas asserções são falsas.")
+
+## Avalia {{ }} em todo texto de uma definicao; funcao e numero passam intactos.
+fx_glue <- function(x, env) {
+  if (is.list(x)) return(lapply(x, fx_glue, env = env))
+  if (is.character(x))
+    return(vapply(x, function(s) as.character(glue::glue(s, .open = "{{", .close = "}}",
+                                                          .envir = env, .trim = FALSE)),
+                  "", USE.NAMES = FALSE))
+  x
+}
+
+fx_questao <- function(..., env = parent.frame()) fx_glue(list(...), env)
+
+fx_passo <- function(rotulo, afirma, porque = character(0))
+  list(rotulo = rotulo, afirma = afirma, porque = porque)
+
+fx_passos <- function(passos) {
+  cat("\\begin{itemize}\n")
+  for (p in passos) {
+    ## A afirmacao abre frase depois do rotulo: primeira letra em maiuscula.
+    af <- sub("^(\\p{Ll})", "\\U\\1", p$afirma, perl = TRUE)
+    cat("\\item \\textbf{", p$rotulo, ".} ", af, "\n", sep = "")
+    if (length(p$porque))
+      cat("\\begin{itemize}\n", paste0("\\item ", p$porque, "\n"), "\\end{itemize}\n", sep = "")
+  }
+  cat("\\end{itemize}\n")
+}
+
+fx_formulario <- function(f) {
+  if (!length(f)) return(invisible())
+  cat("\\begin{formulario}\n"); do.call(eqs, as.list(f)); cat("\\end{formulario}\n\n")
+}
+
+## No deck (pasta aulas/), o enunciado leva roteiro e formulario; na folha
+## impressa de fixacao.org, nao.
+fx_no_deck <- function() getOption("fx_slide", basename(getwd()) == "aulas")
+
+## Formulario do slide: sem o ambiente da folha, que o deck nao define.
+fx_formulario_slide <- function(f) {
+  if (!length(f)) return(invisible())
+  cat("\\tiny\\textbf{Fórmulas}\n"); do.call(eqs, as.list(f))
+}
+
+## Roteiro em caixa, separado dos itens por um espaco (objetiva e
+## assercao-razao); no calculo, que ja divide o slide com tabela e formulario,
+## uma linha corrida abaixo dos itens.
+fx_roteiro <- function(etapas, sep = " $\\to$ ", caixa = TRUE) {
+  if (!length(etapas)) return(invisible())
+  if (caixa) cat("\\vspace{0.6em}\n\\begin{intuicaobox}[Roteiro]\n", paste(etapas, collapse = sep), "\n\\end{intuicaobox}\n\n", sep = "")
+  else cat("\\textbf{Roteiro.} ", paste(etapas, collapse = sep), "\n\n", sep = "")
+}
+
+## Com formulario no deck, a tabela divide a largura com ele.
+fx_cabeca <- function(q, formulario = character(0)) {
+  if (length(q$apresentacao)) cat(q$apresentacao, "\n\n", sep = "")
+  if (is.function(q$tabela) && length(formulario)) {
+    ## onlytextwidth e o \centering anulado: a tabela comeca na margem do enunciado.
+    cat("\\begin{columns}[t,onlytextwidth]\\begin{column}{0.52\\textwidth}\\let\\centering\\raggedright\n"); q$tabela()
+    cat("\\end{column}\\begin{column}{0.46\\textwidth}\n"); fx_formulario_slide(formulario)
+    cat("\\end{column}\\end{columns}\n\n")
+  } else if (is.function(q$tabela)) { q$tabela(); cat("\n") }
+  else if (length(formulario)) fx_formulario_slide(formulario)
+}
+
+fx_alternativas <- function(opcoes)
+  cat(paste0("(", LETTERS[seq_along(opcoes)], ") ", opcoes, "\n\n"), sep = "")
+
+## Gabarito curto, sem o procedimento: a resposta de cada item numa linha. O
+## rotulo \\gabaritorotulo{<id>} e definido pelo documento que o emite: no deck
+## (preambule.tex) vira "Exercicio N", com N do contador de exercicios; no
+## banco (fixacao_setup.org), so "Gabarito".
+fx_gabarito <- function(id, respostas) {
+  cat("\\textbf{\\gabaritorotulo{", id, "}.} ",
+      paste(respostas, collapse = "; "), "\n\n", sep = "")
+}
+
+## Calculo: q$itens e uma lista de list(pergunta, passos, gabarito); q$roteiro,
+## opcional, e uma funcao que desenha o procedimento antes do formulario.
+fx_calculo <- function(q, parte = c("enunciado", "resolucao", "gabarito"), id = "") {
+  parte <- match.arg(parte)
+  if (parte == "gabarito") {
+    fx_gabarito(id, vapply(seq_along(q$itens), function(k)
+      sprintf("(%s) %s", letters[k], q$itens[[k]]$gabarito), ""))
+  } else if (parte == "enunciado") {
+    deck <- fx_no_deck()
+    fx_cabeca(q, if (deck) q$formulario else character(0))
+    for (k in seq_along(q$itens))
+      cat("(", letters[k], ") ", q$itens[[k]]$pergunta, "\n\n", sep = "")
+    if (deck) fx_roteiro(vapply(seq_along(q$itens), function(k)
+      sprintf("(%s) %s", letters[k], paste(vapply(q$itens[[k]]$passos, `[[`, "", "rotulo"), collapse = ", ")), ""), caixa = FALSE)
+  } else {
+    if (is.function(q$roteiro)) { q$roteiro(); cat("\n") }
+    fx_formulario(q$formulario)
+    for (k in seq_along(q$itens)) {
+      cat("\\textbf{(", letters[k], ")}\n", sep = "")
+      fx_passos(q$itens[[k]]$passos)
+    }
+  }
+}
+
+## Objetiva: q$opcoes, q$correta (indice) e q$porques (um por alternativa).
+## A resolucao nomeia cada alternativa pela mesma letra do enunciado, porque as
+## duas partes leem a mesma lista.
+fx_objetiva <- function(q, parte = c("enunciado", "resolucao", "gabarito"), id = "") {
+  parte <- match.arg(parte)
+  if (parte == "gabarito") {
+    fx_gabarito(id, sprintf("(%s)", LETTERS[q$correta]))
+  } else if (parte == "enunciado") {
+    fx_cabeca(q); cat(q$pergunta, "\n\n", sep = ""); fx_alternativas(q$opcoes)
+    if (fx_no_deck()) fx_roteiro(q$dica)
+  } else {
+    fx_formulario(q$formulario)
+    cat("\\textbf{Resposta: (", LETTERS[q$correta], ")}\n", sep = "")
+    alt <- lapply(seq_along(q$opcoes), function(j)
+      fx_passo(sprintf("(%s) %s", LETTERS[j], if (j == q$correta) "é correta" else "é falsa"),
+               q$porques[j]))
+    fx_passos(c(q$passos, alt))
+  }
+}
+
+## Assercao-razao: q$I, q$II, q$gabarito (1 a 5, na ordem de FX_ALT_RAZAO).
+fx_razao <- function(q, parte = c("enunciado", "resolucao", "gabarito"), id = "") {
+  parte <- match.arg(parte)
+  if (parte == "gabarito") {
+    fx_gabarito(id, sprintf("(%s)", LETTERS[q$gabarito]))
+  } else if (parte == "enunciado") {
+    fx_cabeca(q)
+    cat("\\textbf{I.} ", q$I, "\n\n\\textbf{PORQUE}\n\n\\textbf{II.} ", q$II, "\n\n", sep = "")
+    fx_alternativas(FX_ALT_RAZAO)
+    if (fx_no_deck()) fx_roteiro(q$dica)
+  } else {
+    fx_formulario(q$formulario)
+    cat("\\textbf{Resposta: (", LETTERS[q$gabarito], ")}\n", sep = "")
+    fx_passos(q$passos)
+  }
 }
