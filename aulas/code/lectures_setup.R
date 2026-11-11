@@ -434,8 +434,10 @@ fx_glue <- function(x, env) {
 
 fx_questao <- function(..., env = parent.frame()) fx_glue(list(...), env)
 
-fx_passo <- function(rotulo, afirma, porque = character(0))
-  list(rotulo = rotulo, afirma = afirma, porque = porque)
+## roteiro, opcional: a instrucao da etapa sem valores, que o enunciado do deck
+## mostra no lugar do rotulo.
+fx_passo <- function(rotulo, afirma, porque = character(0), roteiro = character(0))
+  list(rotulo = rotulo, afirma = afirma, porque = porque, roteiro = roteiro)
 
 fx_passos <- function(passos) {
   cat("\\begin{itemize}\n")
@@ -467,19 +469,30 @@ fx_formulario_slide <- function(f) {
 ## Roteiro em caixa, separado dos itens por um espaco (objetiva e
 ## assercao-razao); no calculo, que ja divide o slide com tabela e formulario,
 ## uma linha corrida abaixo dos itens.
+## No deck, o roteiro so aparece no primeiro overlay: o frame que mostra a
+## resposta por \only<2> (heterocedasticidade_diagnostico, 2026-11-11) a poe no
+## lugar dele. Sem overlays, \only<1> nao muda nada.
 fx_roteiro <- function(etapas, sep = " $\\to$ ", caixa = TRUE) {
   if (!length(etapas)) return(invisible())
+  cat("\\only<1>{")
   if (caixa) cat("\\vspace{0.6em}\n\\begin{intuicaobox}[Roteiro]\n", paste(etapas, collapse = sep), "\n\\end{intuicaobox}\n\n", sep = "")
   else cat("\\textbf{Roteiro.} ", paste(etapas, collapse = sep), "\n\n", sep = "")
+  cat("}\n")
 }
 
 ## Com formulario no deck, a tabela divide a largura com ele.
-fx_cabeca <- function(q, formulario = character(0)) {
+## extra, opcional: o que vai na coluna do formulario, abaixo das formulas.
+fx_cabeca <- function(q, formulario = character(0), extra = NULL) {
   if (length(q$apresentacao)) cat(q$apresentacao, "\n\n", sep = "")
+  ## No deck, a legenda da tabela no corpo do enunciado, e nao no tamanho do
+  ## tema (decisao do professor, 2026-11-11). Vale ate o fim do frame.
+  if (fx_no_deck() && is.function(q$tabela))
+    cat("\\setbeamerfont{caption}{size=\\scriptsize}\\setbeamerfont{caption name}{size=\\scriptsize}\n")
   if (is.function(q$tabela) && length(formulario)) {
     ## onlytextwidth e o \centering anulado: a tabela comeca na margem do enunciado.
     cat("\\begin{columns}[t,onlytextwidth]\\begin{column}{0.52\\textwidth}\\let\\centering\\raggedright\n"); q$tabela()
     cat("\\end{column}\\begin{column}{0.46\\textwidth}\n"); fx_formulario_slide(formulario)
+    if (is.function(extra)) extra()
     cat("\\end{column}\\end{columns}\n\n")
   } else if (is.function(q$tabela)) { q$tabela(); cat("\n") }
   else if (length(formulario)) fx_formulario_slide(formulario)
@@ -506,11 +519,25 @@ fx_calculo <- function(q, parte = c("enunciado", "resolucao", "gabarito"), id = 
       sprintf("(%s) %s", letters[k], q$itens[[k]]$gabarito), ""))
   } else if (parte == "enunciado") {
     deck <- fx_no_deck()
-    fx_cabeca(q, if (deck) q$formulario else character(0))
+    etapas <- function(it) vapply(it$passos, function(p)
+      if (length(p$roteiro)) p$roteiro else p$rotulo, "")
+    descrito <- deck && any(unlist(lapply(q$itens, function(it) lapply(it$passos, function(p) length(p$roteiro) > 0))))
+    ## Com instrucoes, uma linha por item: a linha corrida nao as comporta.
+    rot_desc <- function(sep, collapse) cat("\\only<1>{\\textbf{Roteiro.}", sep, paste(vapply(seq_along(q$itens), function(k)
+      sprintf("(%s) %s", letters[k], paste(etapas(q$itens[[k]]), collapse = "; ")), ""), collapse = collapse), "\n\n}\n", sep = "")
+    ## Com tabela e formulario, o roteiro descrito vai na coluna do formulario,
+    ## abaixo das formulas (sugestao do professor, 2026-11-11): abaixo dos
+    ## itens, ele nao cabia no frame.
+    na_coluna <- descrito && is.function(q$tabela) && length(q$formulario) > 0
+    fx_cabeca(q, if (deck) q$formulario else character(0),
+              extra = if (na_coluna) function() { cat("\\par\\medskip\n"); rot_desc("\\par\n", "\\par\n") })
     for (k in seq_along(q$itens))
       cat("(", letters[k], ") ", q$itens[[k]]$pergunta, "\n\n", sep = "")
-    if (deck) fx_roteiro(vapply(seq_along(q$itens), function(k)
-      sprintf("(%s) %s", letters[k], paste(vapply(q$itens[[k]]$passos, `[[`, "", "rotulo"), collapse = ", ")), ""), caixa = FALSE)
+    if (deck && !na_coluna) {
+      if (descrito) rot_desc(" ", "\\\\\n")
+      else fx_roteiro(vapply(seq_along(q$itens), function(k)
+        sprintf("(%s) %s", letters[k], paste(etapas(q$itens[[k]]), collapse = ", ")), ""), caixa = FALSE)
+    }
   } else {
     if (is.function(q$roteiro)) { q$roteiro(); cat("\n") }
     fx_formulario(q$formulario)

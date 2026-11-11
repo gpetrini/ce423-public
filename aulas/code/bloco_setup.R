@@ -317,19 +317,40 @@ parcial <- function(m) {
 }
 
 cf <- function(m) summary(m)$coefficients
+## Marcas de significancia na convencao de economia (decisao do professor,
+## 2026-11-10): estrelas a 10%, 5% e 1%, com a legenda numa linha abaixo da
+## tabela, e nunca dentro dela.
+## As estrelas que faltam saem em \phantom: toda celula fica com a largura de
+## tres, e a coluna alinhada a direita fica alinhada no separador decimal
+## (pedido do professor, 2026-11-10).
+estrelas <- function(p) {
+  k <- ifelse(p < 0.01, 3, ifelse(p < 0.05, 2, ifelse(p < 0.1, 1, 0)))
+  vapply(k, function(j) sprintf("$^{%s\\phantom{%s}}$", strrep("\\star", j), strrep("\\star", 3 - j)), "")
+}
+legenda_estrelas <- function()
+  cat("{\\centering\\scriptsize $^{\\star}$, $^{\\star\\star}$ e $^{\\star\\star\\star}$: \\(p\\)-valor abaixo de $0.10$, $0.05$ e $0.01$.\\par}\n\n")
 ## `destaque_p` poe em caixa o p-valor das linhas indicadas, para o frame cuja
 ## leitura e o p-valor, e nao o coeficiente.
 tab_coef <- function(m, termos, rotulos, destaque = integer(0), caption, tamanho = "small", d = 1,
-                     j = match(termos, names(coef(m))) - 1, destaque_p = integer(0), fiv = NULL) {
+                     j = match(termos, names(coef(m))) - 1, destaque_p = integer(0), fiv = NULL,
+                     simbolo = "\\hat\\beta", ajuste = FALSE) {
   x <- cf(m)[termos, , drop = FALSE]
   b <- nm(x[, 1], d); b[destaque] <- sprintf("$\\boxed{%s}$", b[destaque])
   p <- ifelse(x[, 4] < 1e-4, "$< 0.0001$", nm(x[, 4], 4))
   p[destaque_p] <- sprintf("$\\boxed{%s}$", gsub("\\$", "", p[destaque_p]))
-  tb <- data.frame(Termo = rotulos, `Parâmetro` = sprintf("$\\hat\\beta_{%d}$", j),
+  tb <- data.frame(Termo = rotulos, `Parâmetro` = sprintf("$%s_{%d}$", simbolo, j),
                   Coeficiente = b, `Erro padrão` = nm(x[, 2], d),
                   `$t$` = nm(x[, 3], 2), `$p$-valor` = p, check.names = FALSE)
   ## `fiv`: um valor por termo (NA no intercepto), em coluna propria.
   if (!is.null(fiv)) tb[["$\\text{FIV}_j$"]] <- ifelse(is.na(fiv), "---", nm(fiv, 2))
+  ## `ajuste`: R2 e R2 ajustado em linhas abaixo de um filete, como em artigo
+  ## (decisao do professor, 2026-11-09). O \midrule abre a celula da linha.
+  if (ajuste) {
+    sm <- summary(m); r <- tb[1:2, ]; r[] <- ""
+    r$Termo <- c("\\midrule $R^2$", "$\\bar R^2$")
+    r$Coeficiente <- nm(c(sm$r.squared, sm$adj.r.squared), 4)
+    tb <- rbind(tb, r)
+  }
   tab(tb, caption = caption, align = c("l", "c", rep("r", ncol(tb) - 2)), tamanho = tamanho)
 }
 
